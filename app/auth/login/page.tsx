@@ -19,109 +19,98 @@ export default function LoginPage() {
   const [selectedPanel, setSelectedPanel] = useState<"driver" | "operations" | null>(null)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!selectedPanel) {
-      setError("Lütfen hangi panele giriş yapmak istediğinizi seçin")
-      return
-    }
-
-    const supabase = createClient()
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      console.log("[v0] Login attempt for:", email)
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      console.log("[v0] Login successful, user ID:", data.user.id)
-
-      let { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single()
-
-      console.log("[v0] Profile query result:", { profile, profileError })
-
-      // If profile doesn't exist, create it
-      if (profileError && profileError.code === "PGRST116") {
-        console.log("[v0] Profile not found, creating new profile")
-
-        const { data: newProfile, error: createError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            email: data.user.email,
-            full_name: data.user.email,
-            role: "driver", // Default role
-          })
-          .select("role")
-          .single()
-
-        if (createError) {
-          console.log("[v0] Profile creation failed:", createError)
-          setError("Profil oluşturulamadı. Lütfen yöneticinizle iletişime geçin.")
-          return
-        }
-
-        profile = newProfile
-        console.log("[v0] Profile created successfully:", profile)
-      } else if (profileError) {
-        console.log("[v0] Profile query error:", profileError)
-        setError("Profil sorgulanırken hata oluştu")
-        return
-      }
-
-      if (!profile) {
-        setError("Kullanıcı profili bulunamadı")
-        return
-      }
-
-      console.log("[v0] User role:", profile.role, "Selected panel:", selectedPanel)
-
-      if (selectedPanel === "driver" && profile.role !== "driver") {
-        setError("Bu hesap şöför paneline erişim yetkisine sahip değil")
-        return
-      }
-
-      if (selectedPanel === "operations" && !["operations", "admin"].includes(profile.role)) {
-        setError("Bu hesap operasyon paneline erişim yetkisine sahip değil")
-        return
-      }
-
-      console.log("[v0] Role check passed, redirecting to:", selectedPanel === "driver" ? "/driver" : "/operations")
-
-      if (selectedPanel === "driver") {
-        router.push("/driver")
-      } else {
-        router.push("/operations")
-      }
-      router.refresh()
-    } catch (error: unknown) {
-      console.log("[v0] Login error:", error)
-      if (error instanceof Error) {
-        if (error.message.includes("Invalid login credentials")) {
-          setError("Geçersiz e-posta veya şifre")
-        } else if (error.message.includes("Email not confirmed")) {
-          setError("E-posta adresinizi doğrulamanız gerekiyor")
-        } else {
-          setError("Giriş yapılırken bir hata oluştu: " + error.message)
-        }
-      } else {
-        setError("Bir hata oluştu")
-      }
-    } finally {
-      setIsLoading(false)
-    }
+  if (!selectedPanel) {
+    setError("Lütfen hangi panele giriş yapmak istediğinizi seçin");
+    return;
   }
+
+  const supabase = createClient();
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    console.log("[v0] Login attempt for:", email);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    console.log("[v0] Login successful, user ID:", data.user.id);
+
+    let { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError && profileError.code === "PGRST116") {
+      console.log("[v0] Profile not found, creating new profile");
+      const { data: newProfile, error: createError } = await supabase
+        .from("profiles")
+        .insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.email,
+          role: "driver",
+        })
+        .select("role")
+        .single();
+
+      if (createError) throw createError;
+      profile = newProfile;
+      console.log("[v0] Profile created successfully:", profile);
+    } else if (profileError) {
+      throw profileError;
+    }
+
+    if (!profile) {
+      setError("Kullanıcı profili bulunamadı");
+      return;
+    }
+
+    console.log("[v0] User role:", profile.role, "Selected panel:", selectedPanel);
+
+    if (selectedPanel === "driver" && profile.role !== "driver") {
+      setError("Bu hesap şöför paneline erişim yetkisine sahip değil");
+      return;
+    }
+
+    if (selectedPanel === "operations" && !["operations", "admin"].includes(profile.role)) {
+      setError("Bu hesap operasyon paneline erişim yetkisine sahip değil");
+      return;
+    }
+
+    console.log("[v0] Role check passed, redirecting to:", selectedPanel === "driver" ? "/driver" : "/operations");
+
+    // Yönlendirme
+    if (selectedPanel === "driver") {
+      router.push("/driver");
+    } else {
+      router.push("/operations");
+    }
+  } catch (error: unknown) {
+    console.log("[v0] Login error:", error);
+    if (error instanceof Error) {
+      if (error.message.includes("Invalid login credentials")) {
+        setError("Geçersiz e-posta veya şifre");
+      } else if (error.message.includes("Email not confirmed")) {
+        setError("E-posta adresinizi doğrulamanız gerekiyor");
+      } else {
+        setError(`Giriş yapılırken bir hata oluştu: ${error.message}`);
+      }
+    } else {
+      setError("Bilinmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100">

@@ -1,24 +1,23 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import FileUpload from "../driver/file-upload"
-import OperationsFileUpload from "./operations-file-upload"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FileUpload from "../driver/file-upload";
+import OperationsFileUpload from "./operations-file-upload";
 
 interface TaskEditModalProps {
-  task: any
-  drivers: any[]
-  onClose: () => void
-  onSuccess: () => void
+  task: any;
+  drivers: any[];
+  onClose: () => void;
+  onSuccess: () => void;
 }
 
 export default function TaskEditModal({ task, drivers, onClose, onSuccess }: TaskEditModalProps) {
@@ -31,21 +30,27 @@ export default function TaskEditModal({ task, drivers, onClose, onSuccess }: Tas
     customerName: task.customer_name || "",
     customerPhone: task.customer_phone || "",
     customerNotes: task.customer_notes || "",
-    assignedDriverId: task.assigned_driver_id || "",
+    assignedDriverId: task.assigned_driver_id || null,
     status: task.status || "new",
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    console.log("[TaskEditModal] Drivers:", JSON.stringify(drivers, null, 2));
+    console.log("[TaskEditModal] Active drivers:", drivers.filter((driver) => (driver.drivers || driver)?.is_active));
+    console.log("[TaskEditModal] Task assigned_driver_id:", task.assigned_driver_id);
+  }, [drivers, task]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError(null)
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
 
     try {
       const updateData = {
@@ -57,24 +62,24 @@ export default function TaskEditModal({ task, drivers, onClose, onSuccess }: Tas
         customer_name: formData.customerName,
         customer_phone: formData.customerPhone,
         customer_notes: formData.customerNotes || null,
-        assigned_driver_id: formData.assignedDriverId || null,
-        status: formData.status,
+        assigned_driver_id: formData.assignedDriverId,
+        status: formData.assignedDriverId ? "assigned" : formData.status,
         updated_at: new Date().toISOString(),
-      }
+      };
 
-      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
+      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id);
 
-      if (error) throw error
+      if (error) throw error;
 
-      onSuccess()
+      onSuccess();
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const activeDrivers = drivers.filter((driver) => driver.drivers?.[0]?.is_active)
+  const activeDrivers = drivers.filter((driver) => (driver.drivers || driver)?.is_active === true);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -190,21 +195,31 @@ export default function TaskEditModal({ task, drivers, onClose, onSuccess }: Tas
               <div className="space-y-2">
                 <Label htmlFor="assignedDriverId">Atanan Şöför</Label>
                 <Select
-                  value={formData.assignedDriverId}
-                  onValueChange={(value) => handleInputChange("assignedDriverId", value)}
+                  value={formData.assignedDriverId || "null"}
+                  onValueChange={(value) => handleInputChange("assignedDriverId", value === "null" ? null : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Şöför seçin veya atanmamış bırakın" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">Atanmamış</SelectItem>
-                    {activeDrivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
-                        {driver.full_name} - {driver.drivers?.[0]?.vehicle_plate}
+                    <SelectItem value="null">Atanmamış</SelectItem>
+                    {activeDrivers.length > 0 ? (
+                      activeDrivers.map((driver) => {
+                        const driverInfo = driver.drivers || driver;
+                        return (
+                          <SelectItem key={driverInfo.user_id} value={driverInfo.user_id}>
+                            {driver.full_name || "İsim Yok"} - {driverInfo.vehicle_plate || "Plaka Yok"}
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <SelectItem value="no-drivers" disabled>
+                        Aktif şoför bulunamadı
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-gray-500">{activeDrivers.length} aktif şoför mevcut</p>
               </div>
 
               <div className="space-y-2">
@@ -254,5 +269,5 @@ export default function TaskEditModal({ task, drivers, onClose, onSuccess }: Tas
         </Tabs>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
