@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Switch } from "@/components/ui/switch"
-import TaskCard from "./task-card"
-import TaskDetails from "./task-details"
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+import TaskCard from "./task-card";
+import TaskDetails from "./task-details";
 import { 
   Phone, 
   Car, 
@@ -27,106 +27,201 @@ import {
   Activity,
   BarChart3,
   ChevronDown,
-  ChevronUp
-} from "lucide-react"
+  ChevronUp,
+  AlertTriangle
+} from "lucide-react";
 
 interface Task {
-  id: string
-  title: string
-  pickup_location: string
-  dropoff_location: string
-  pickup_date: string
-  pickup_time: string
-  customer_name: string
-  customer_phone: string
-  customer_notes: string
-  status: string
-  driver_name: string
-  driver_phone: string
-  vehicle_plate: string
-  created_at: string
+  id: string;
+  title: string;
+  pickup_location: string;
+  dropoff_location: string;
+  pickup_date: string;
+  pickup_time: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_notes: string;
+  status: string;
+  driver_name: string;
+  driver_phone: string;
+  vehicle_plate: string;
+  created_at: string;
 }
 
 interface DriverDashboardProps {
-  profile: any
-  driver: any
-  initialTasks: Task[]
+  profile: any;
+  driver: any;
+  initialTasks: Task[];
 }
 
 export default function DriverDashboard({ profile, driver, initialTasks }: DriverDashboardProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks)
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [activeFilter, setActiveFilter] = useState("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isDriverActive, setIsDriverActive] = useState(driver?.is_active || false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isDriverInfoExpanded, setIsDriverInfoExpanded] = useState(false)
-  const supabase = createClient()
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDriverActive, setIsDriverActive] = useState(driver?.is_active || false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDriverInfoExpanded, setIsDriverInfoExpanded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Simüle edilmiş yükleme durumu (initialTasks, profile, driver zaten yüklendi, ancak UI için gecikme ekleyelim)
+    const timer = setTimeout(() => {
+      if (!profile || !driver || !initialTasks) {
+        setError("Veriler eksik, lütfen tekrar deneyin.");
+      }
+      setLoading(false);
+    }, 1000); // 1 saniyelik simüle edilmiş yükleme
+
+    return () => clearTimeout(timer);
+  }, [profile, driver, initialTasks]);
 
   const refreshTasks = async () => {
-    setIsRefreshing(true)
-    const { data } = await supabase
-      .from("driver_tasks_view")
-      .select("*")
-      .eq("assigned_driver_id", profile.id)
-      .order("pickup_date", { ascending: true })
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase
+        .from("driver_tasks_view")
+        .select("*")
+        .eq("assigned_driver_id", profile.id)
+        .order("pickup_date", { ascending: true });
 
-    if (data) {
-      setTasks(data)
+      if (error) {
+        console.error("[DriverDashboard] Error refreshing tasks:", error);
+        setError("Görevler yenilenirken hata oluştu.");
+      } else {
+        setTasks(data || []);
+      }
+    } catch (error) {
+      console.error("[DriverDashboard] Unexpected error refreshing tasks:", error);
+      setError("Beklenmeyen bir hata oluştu.");
+    } finally {
+      setIsRefreshing(false);
     }
-    setIsRefreshing(false)
-  }
+  };
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    window.location.href = "/auth/login"
-  }
+    try {
+      await supabase.auth.signOut();
+      window.location.href = "/auth/login";
+    } catch (error) {
+      console.error("[DriverDashboard] Error logging out:", error);
+      setError("Çıkış yaparken hata oluştu.");
+    }
+  };
+
+  const toggleDriverStatus = async (newStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("drivers")
+        .update({ is_active: newStatus })
+        .eq("user_id", profile.id);
+
+      if (error) {
+        console.error("[DriverDashboard] Error updating driver status:", error);
+        setError("Şoför durumu güncellenirken hata oluştu.");
+      } else {
+        setIsDriverActive(newStatus);
+      }
+    } catch (error) {
+      console.error("[DriverDashboard] Unexpected error updating driver status:", error);
+      setError("Beklenmeyen bir hata oluştu.");
+    }
+  };
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesFilter = activeFilter === "all" || task.status === activeFilter
+    const matchesFilter = activeFilter === "all" || task.status === activeFilter;
     const matchesSearch =
       searchQuery === "" ||
       task.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.pickup_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.dropoff_location.toLowerCase().includes(searchQuery.toLowerCase())
+      task.dropoff_location.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesFilter && matchesSearch
-  })
+    return matchesFilter && matchesSearch;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "new":
-        return "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
+        return "bg-gradient-to-r from-blue-500 to-blue-600 text-white";
       case "assigned":
-        return "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+        return "bg-gradient-to-r from-amber-500 to-orange-500 text-white";
       case "in_progress":
-        return "bg-gradient-to-r from-green-500 to-emerald-500 text-white animate-pulse"
+        return "bg-gradient-to-r from-green-500 to-emerald-500 text-white animate-pulse";
       case "completed":
-        return "bg-gradient-to-r from-emerald-600 to-green-600 text-white"
+        return "bg-gradient-to-r from-emerald-600 to-green-600 text-white";
       case "cancelled":
-        return "bg-gradient-to-r from-red-500 to-red-600 text-white"
+        return "bg-gradient-to-r from-red-500 to-red-600 text-white";
       default:
-        return "bg-gradient-to-r from-gray-500 to-gray-600 text-white"
+        return "bg-gradient-to-r from-gray-500 to-gray-600 text-white";
     }
-  }
+  };
 
   const getStatusCount = (status: string) => {
-    return tasks.filter((task) => task.status === status).length
+    return tasks.filter((task) => task.status === status).length;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
+        <div className="text-center space-y-6">
+          <div className="relative flex items-center justify-center">
+            {/* Pulsing Map Pin */}
+            <div className="absolute animate-pulse">
+              <MapPin className="h-12 w-12 text-red-500" />
+            </div>
+            {/* Moving Car */}
+            <div className="relative animate-[moveCar_2s_ease-in-out_infinite]">
+              <Car className="h-8 w-8 text-blue-600 transform rotate-45" />
+            </div>
+          </div>
+          <p className="text-lg font-semibold text-gray-800">Şoför Paneli Yükleniyor...</p>
+          <p className="text-sm text-gray-500 animate-pulse">Görevleriniz hazırlanıyor, lütfen bekleyin.</p>
+        </div>
+        <style jsx>{`
+          @keyframes moveCar {
+            0%, 100% { transform: translateX(-20px) rotate(45deg); }
+            50% { transform: translateX(20px) rotate(45deg); }
+          }
+        `}</style>
+      </div>
+    );
   }
 
-  const toggleDriverStatus = async (newStatus: boolean) => {
-    try {
-      const { error } = await supabase.from("drivers").update({ is_active: newStatus }).eq("user_id", profile.id)
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
+        <div className="text-center space-y-6 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+          <div className="flex justify-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 animate-pulse" />
+          </div>
+          <p className="text-lg font-semibold text-gray-800">Hata Oluştu</p>
+          <p className="text-sm text-gray-600">{error}</p>
+          <Button
+            onClick={() => window.location.href = "/auth/login"}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Giriş Sayfasına Dön
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-      if (error) {
-        console.error("Error updating driver status:", error)
-      } else {
-        setIsDriverActive(newStatus)
-      }
-    } catch (error) {
-      console.error("Error updating driver status:", error)
-    }
+  if (!profile || !driver || !tasks) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
+        <div className="text-center space-y-6 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+          <div className="flex justify-center">
+            <Car className="h-12 w-12 text-blue-500 animate-bounce" />
+          </div>
+          <p className="text-lg font-semibold text-gray-800">Veriler Yükleniyor...</p>
+          <p className="text-sm text-gray-600">Lütfen biraz daha bekleyin.</p>
+        </div>
+      </div>
+    );
   }
 
   if (selectedTask) {
@@ -137,7 +232,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         onTaskUpdate={refreshTasks}
         profile={profile}
       />
-    )
+    );
   }
 
   return (
@@ -160,19 +255,19 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 <p className="text-xs sm:text-sm text-gray-600 truncate">Hoş geldiniz, {profile.full_name}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
-                  {isDriverActive ? (
-                    <CheckCircle className="h-4 w-4 text-green-300" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-300" />
-                  )}
-                  <Switch
-                    checked={isDriverActive}
-                    onCheckedChange={toggleDriverStatus}
-                    className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                  />
-                </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
+                {isDriverActive ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                )}
+                <Switch
+                  checked={isDriverActive}
+                  onCheckedChange={toggleDriverStatus}
+                  className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                />
+              </div>
               <Button
                 onClick={refreshTasks}
                 variant="outline"
@@ -183,7 +278,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>Yenile</span>
               </Button>
-              
               <Button 
                 onClick={refreshTasks} 
                 variant="outline" 
@@ -193,7 +287,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
               >
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
-              
               <Button
                 onClick={handleLogout}
                 variant="outline"
@@ -203,7 +296,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 <LogOut className="h-4 w-4" />
                 <span>Çıkış</span>
               </Button>
-              
               <Button
                 onClick={handleLogout}
                 variant="outline"
@@ -227,12 +319,11 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 backgroundRepeat: 'repeat'
               }}></div>
             </div>
-            
-            <CardTitle 
-              className="flex items-center justify-between relative z-10 cursor-pointer"
-              onClick={() => setIsDriverInfoExpanded(!isDriverInfoExpanded)}
-            >
-              <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-between relative z-10">
+              <CardTitle 
+                className="flex items-center space-x-3 cursor-pointer"
+                onClick={() => setIsDriverInfoExpanded(!isDriverInfoExpanded)}
+              >
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                   <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
@@ -240,25 +331,20 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                   <div className="text-sm font-medium opacity-90">Şoför Durumu</div>
                   <div className="text-base sm:text-lg font-bold">Transfer Operatörü</div>
                 </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                
-                <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-white hover:bg-white/10 p-1"
-                >
-                  {isDriverInfoExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </CardTitle>
-
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-white hover:bg-white/10 p-1"
+                onClick={() => setIsDriverInfoExpanded(!isDriverInfoExpanded)}
+              >
+                {isDriverInfoExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
             {/* Dashboard Stats - Always visible on header */}
             <div className="mt-3 relative z-10">
               <div className="grid grid-cols-5 gap-2">
@@ -286,7 +372,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
             </div>
           </CardHeader>
           
-          {/* Collapsible Driver Details */}
           {isDriverInfoExpanded && (
             <CardContent className="p-4 border-t border-gray-100">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -301,7 +386,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                     </div>
                   </div>
                 </div>
-                
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border border-green-100">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-green-500 rounded-lg shadow-lg flex-shrink-0">
@@ -315,7 +399,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                     </div>
                   </div>
                 </div>
-                
                 <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-3 rounded-lg border border-purple-100">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-purple-500 rounded-lg shadow-lg flex-shrink-0">
@@ -338,7 +421,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col space-y-3">
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -348,8 +430,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                   className="pl-10 h-10 rounded-lg border-2 border-gray-200 focus:border-blue-400 bg-white/50"
                 />
               </div>
-              
-              {/* Filter Tabs */}
               <Tabs value={activeFilter} onValueChange={setActiveFilter} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 bg-gray-100/50 rounded-lg p-1">
                   <TabsTrigger 
@@ -404,7 +484,6 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
               </span>
             </CardTitle>
           </CardHeader>
-          
           <CardContent className="p-0">
             <div className="max-h-96 overflow-y-auto">
               {filteredTasks.length === 0 ? (
@@ -435,7 +514,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {filteredTasks.map((task, index) => (
+                  {filteredTasks.map((task) => (
                     <div key={task.id} className="p-3 hover:bg-gray-50 transition-colors">
                       <TaskCard
                         task={task}
@@ -451,5 +530,5 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         </Card>
       </div>
     </div>
-  )
+  );
 }
