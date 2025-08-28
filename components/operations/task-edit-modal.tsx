@@ -185,7 +185,6 @@ export default function TaskEditModal({ task, drivers, onClose, onSuccess }: Tas
                   <Input
                     id="customerPhone"
                     type="tel"
-                    required
                     value={formData.customerPhone}
                     onChange={(e) => handleInputChange("customerPhone", e.target.value)}
                   />

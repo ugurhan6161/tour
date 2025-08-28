@@ -324,8 +324,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                   <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium opacity-90">Şoför Durumu</div>
-                  <div className="text-base sm:text-lg font-bold">Transfer Operatörü</div>
+                  <div className="text-base sm:text-lg font-bold">Şöför Durumu</div>
                 </div>
               </CardTitle>
               <Button 
@@ -476,7 +475,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
             <CardTitle className="flex items-center space-x-2">
               <Calendar className="h-5 w-5 text-gray-600" />
               <span className="text-base font-bold text-gray-800">
-                Transfer Görevleri ({filteredTasks.length})
+                Görevler ({filteredTasks.length})
               </span>
             </CardTitle>
           </CardHeader>
@@ -490,11 +489,11 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                     </div>
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-2">
-                    {activeFilter === "all" ? "🔍 Transfer Bulunamadı" : "📋 Filtreli Transfer Yok"}
+                    {activeFilter === "all" ? "🔍 Göre Bulunamadı" : "📋 Filtreli Görev Yok"}
                   </h3>
                   <p className="text-gray-600 text-sm max-w-md mx-auto">
                     {activeFilter === "all"
-                      ? "Henüz size atanmış bir transfer görevi bulunmuyor. Yeni görevler için bekleyin."
+                      ? "Henüz size atanmış bir görev bulunmuyor. Yeni görevler için bekleyin."
                       : `${
                           activeFilter === "new"
                             ? "🆕 Yeni"
@@ -505,7 +504,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                                 : activeFilter === "completed"
                                   ? "✅ Tamamlanan"
                                   : "❌ İptal edilen"
-                        } transfer görevi bulunamadı.`}
+                        } görev bulunamadı.`}
                   </p>
                 </div>
               ) : (

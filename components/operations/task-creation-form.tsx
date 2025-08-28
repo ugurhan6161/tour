@@ -198,7 +198,6 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   <Input
                     id="customerPhone"
                     type="tel"
-                    required
                     value={formData.customerPhone}
                     onChange={(e) => handleInputChange("customerPhone", e.target.value)}
                     placeholder="örn: +90 555 123 4567"

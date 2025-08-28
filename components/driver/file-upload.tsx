@@ -147,7 +147,7 @@ export default function FileUpload({ taskId, profileId }: FileUploadProps) {
         onDrop={handleDrop}
       >
         <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-600 mb-2">Drag and drop passport images here, or click to select files</p>
+        <p className="text-sm text-gray-600 mb-2">Pasaport resimlerini buraya yükleyin</p>
         <input
           type="file"
           multiple
@@ -162,7 +162,7 @@ export default function FileUpload({ taskId, profileId }: FileUploadProps) {
           variant="outline"
           size="sm"
         >
-          {uploading ? "Uploading..." : "Select Files"}
+          {uploading ? "Uploading..." : "Dosya Seçin"}
         </Button>
       </div>
 

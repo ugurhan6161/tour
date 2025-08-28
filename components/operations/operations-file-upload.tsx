@@ -171,8 +171,8 @@ export default function OperationsFileUpload({ taskId, fileType }: OperationsFil
         <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
         <p className="text-sm text-gray-600 mb-2">
           {fileType === "trip_document"
-            ? "Drag and drop trip documents here, or click to select files"
-            : "Drag and drop files here, or click to select files"}
+            ? "Belgeleri sürükle bırak veya buradan seç"
+            : "Sürükle bırak yada Dosya seç"}
         </p>
         <p className="text-xs text-gray-500 mb-3">
           Supported formats: {fileType === "trip_document" ? "PDF, DOC, DOCX, JPG, PNG" : "Images and PDF"}
@@ -191,7 +191,7 @@ export default function OperationsFileUpload({ taskId, fileType }: OperationsFil
           variant="outline"
           size="sm"
         >
-          {uploading ? "Uploading..." : "Select Files"}
+          {uploading ? "Yükleniyor..." : "Dosya Seç"}
         </Button>
       </div>
 
@@ -199,7 +199,7 @@ export default function OperationsFileUpload({ taskId, fileType }: OperationsFil
       {files.length > 0 && (
         <div className="space-y-2">
           <h4 className="font-medium text-gray-900">
-            {fileType === "trip_document" ? "Trip Documents" : "Uploaded Files"} ({files.length})
+            {fileType === "trip_document" ? "Yolculuk Belgeleri" : "Yüklenmiş Dosyalar"} ({files.length})
           </h4>
           {files.map((file) => (
             <Card key={file.id}>
@@ -236,7 +236,7 @@ export default function OperationsFileUpload({ taskId, fileType }: OperationsFil
 
       {files.length === 0 && (
         <div className="text-center py-4 text-gray-500 text-sm">
-          No {fileType === "trip_document" ? "trip documents" : "files"} uploaded yet.
+          şimdiye kadar {fileType === "trip_document" ? "yolculuk belgesi" : "files"} yüklenmedi.
         </div>
       )}
     </div>
