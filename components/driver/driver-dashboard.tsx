@@ -10,14 +10,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import TaskCard from "./task-card";
 import TaskDetails from "./task-details";
-import { 
-  Phone, 
-  Car, 
-  User, 
-  Calendar, 
-  LogOut, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Phone,
+  Car,
+  User,
+  Calendar,
+  LogOut,
+  CheckCircle,
+  XCircle,
   Search,
   RefreshCw,
   Bus,
@@ -28,7 +28,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronUp,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 
 interface Task {
@@ -67,13 +67,12 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
   const supabase = createClient();
 
   useEffect(() => {
-    // Simüle edilmiş yükleme durumu (initialTasks, profile, driver zaten yüklendi, ancak UI için gecikme ekleyelim)
     const timer = setTimeout(() => {
       if (!profile || !driver || !initialTasks) {
         setError("Veriler eksik, lütfen tekrar deneyin.");
       }
       setLoading(false);
-    }, 1000); // 1 saniyelik simüle edilmiş yükleme
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [profile, driver, initialTasks]);
@@ -88,7 +87,11 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         .order("pickup_date", { ascending: true });
 
       if (error) {
-        console.error("[DriverDashboard] Error refreshing tasks:", error);
+        console.error("[DriverDashboard] Error refreshing tasks:", {
+          message: error.message,
+          code: error.code,
+          status: error.status,
+        });
         setError("Görevler yenilenirken hata oluştu.");
       } else {
         setTasks(data || []);
@@ -119,7 +122,11 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         .eq("user_id", profile.id);
 
       if (error) {
-        console.error("[DriverDashboard] Error updating driver status:", error);
+        console.error("[DriverDashboard] Error updating driver status:", {
+          message: error.message,
+          code: error.code,
+          status: error.status,
+        });
         setError("Şoför durumu güncellenirken hata oluştu.");
       } else {
         setIsDriverActive(newStatus);
@@ -130,16 +137,29 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesFilter = activeFilter === "all" || task.status === activeFilter;
-    const matchesSearch =
-      searchQuery === "" ||
-      task.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.pickup_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.dropoff_location.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesFilter && matchesSearch;
-  });
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesFilter = activeFilter === "all" || task.status === activeFilter;
+      const matchesSearch =
+        searchQuery === "" ||
+        task.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.pickup_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.dropoff_location.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (activeFilter === "all") {
+        const statusOrder = {
+          assigned: 1,
+          in_progress: 2,
+          completed: 3,
+          new: 4,
+          cancelled: 5,
+        };
+        return statusOrder[a.status] - statusOrder[b.status] || new Date(a.pickup_date).getTime() - new Date(b.pickup_date).getTime();
+      }
+      return new Date(a.pickup_date).getTime() - new Date(b.pickup_date).getTime();
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -167,11 +187,9 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
         <div className="text-center space-y-6">
           <div className="relative flex items-center justify-center">
-            {/* Pulsing Map Pin */}
             <div className="absolute animate-pulse">
               <MapPin className="h-12 w-12 text-red-500" />
             </div>
-            {/* Moving Car */}
             <div className="relative animate-[moveCar_2s_ease-in-out_infinite]">
               <Car className="h-8 w-8 text-blue-600 transform rotate-45" />
             </div>
@@ -181,8 +199,13 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         </div>
         <style jsx>{`
           @keyframes moveCar {
-            0%, 100% { transform: translateX(-20px) rotate(45deg); }
-            50% { transform: translateX(20px) rotate(45deg); }
+            0%,
+            100% {
+              transform: translateX(-20px) rotate(45deg);
+            }
+            50% {
+              transform: translateX(20px) rotate(45deg);
+            }
           }
         `}</style>
       </div>
@@ -199,7 +222,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
           <p className="text-lg font-semibold text-gray-800">Hata Oluştu</p>
           <p className="text-sm text-gray-600">{error}</p>
           <Button
-            onClick={() => window.location.href = "/auth/login"}
+            onClick={() => (window.location.href = "/auth/login")}
             className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -242,28 +265,31 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div className="flex items-center space-x-3 sm:space-x-4">
-                          <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
-                {isDriverActive ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
-                )}
-                <Switch
-                  checked={isDriverActive}
-                  onCheckedChange={toggleDriverStatus}
-                  className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center space-x-2">
-                  <Bus className="h-5 w-5 text-blue-600" />
-                  <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">Tur Şoför Paneli</h1>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
+                  {isDriverActive ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                  <Switch
+                    checked={isDriverActive}
+                    onCheckedChange={toggleDriverStatus}
+                    className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                  />
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">Hoş geldiniz, {profile.full_name}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center space-x-2">
+                    <Bus className="h-5 w-5 text-blue-600" />
+                    <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">
+                      Tur Şoför Paneli
+                    </h1>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-600 truncate">
+                    Hoş geldiniz, {profile.full_name}
+                  </p>
+                </div>
               </div>
-            </div>
-
               <Button
                 onClick={refreshTasks}
                 variant="outline"
@@ -271,17 +297,17 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 disabled={isRefreshing}
                 className="hidden sm:flex items-center space-x-2 hover:bg-blue-50 border-blue-200"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
                 <span>Yenile</span>
               </Button>
-              <Button 
-                onClick={refreshTasks} 
-                variant="outline" 
-                size="sm" 
+              <Button
+                onClick={refreshTasks}
+                variant="outline"
+                size="sm"
                 disabled={isRefreshing}
                 className="sm:hidden p-2 hover:bg-blue-50 border-blue-200"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </Button>
               <Button
                 onClick={handleLogout}
@@ -305,18 +331,21 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Driver Status Card with Collapsible Content */}
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white relative overflow-hidden p-3 sm:p-4">
             <div className="absolute inset-0 opacity-20">
-              <div className="w-full h-full" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                backgroundRepeat: 'repeat'
-              }}></div>
+              <div
+                className="w-full h-full"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  backgroundRepeat: "repeat",
+                }}
+              ></div>
             </div>
             <div className="flex items-center justify-between relative z-10">
-              <CardTitle 
+              <CardTitle
                 className="flex items-center space-x-3 cursor-pointer"
                 onClick={() => setIsDriverInfoExpanded(!isDriverInfoExpanded)}
               >
@@ -324,12 +353,12 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                   <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div>
-                  <div className="text-base sm:text-lg font-bold">Şöför Durumu</div>
+                  <div className="text-base sm:text-lg font-bold">Şoför Durumu</div>
                 </div>
               </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-white hover:bg-white/10 p-1"
                 onClick={() => setIsDriverInfoExpanded(!isDriverInfoExpanded)}
               >
@@ -366,7 +395,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
               </div>
             </div>
           </CardHeader>
-          
+
           {isDriverInfoExpanded && (
             <CardContent className="p-4 border-t border-gray-100">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -412,10 +441,18 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
           )}
         </Card>
 
-        {/* Search and Filter */}
-        <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
+        {/* Combined Search, Filter, and Tasks Card */}
+        <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden">
+          <CardHeader className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+            <CardTitle className="flex items-center space-x-2">
+              <Calendar className="h-5 w-5 text-gray-600" />
+              <span className="text-base font-bold text-gray-800">
+                Görevler ({filteredTasks.length})
+              </span>
+            </CardTitle>
+          </CardHeader>
           <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col space-y-3">
+            <div className="space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -427,38 +464,38 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
               </div>
               <Tabs value={activeFilter} onValueChange={setActiveFilter} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 bg-gray-100/50 rounded-lg p-1">
-                  <TabsTrigger 
-                    value="all" 
+                  <TabsTrigger
+                    value="all"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-md"
                   >
                     🔍 Tümü
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="new" 
+                  <TabsTrigger
+                    value="new"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
                     🆕 Yeni
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="assigned" 
+                  <TabsTrigger
+                    value="assigned"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
                     ⏳ Bekleyen
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="in_progress" 
+                  <TabsTrigger
+                    value="in_progress"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
                     🚌 Aktif
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="completed" 
+                  <TabsTrigger
+                    value="completed"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
                     ✅ Biten
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="cancelled" 
+                  <TabsTrigger
+                    value="cancelled"
                     className="rounded-md text-xs font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
                     ❌ İptal
@@ -466,21 +503,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                 </TabsList>
               </Tabs>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Scrollable Tasks List */}
-        <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
-          <CardHeader className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-            <CardTitle className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-gray-600" />
-              <span className="text-base font-bold text-gray-800">
-                Görevler ({filteredTasks.length})
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-96 overflow-y-auto">
+            <div className="mt-3 max-h-96 overflow-y-auto">
               {filteredTasks.length === 0 ? (
                 <div className="p-6 text-center">
                   <div className="text-gray-400 mb-4">
@@ -489,7 +512,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                     </div>
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-2">
-                    {activeFilter === "all" ? "🔍 Göre Bulunamadı" : "📋 Filtreli Görev Yok"}
+                    {activeFilter === "all" ? "🔍 Görev Bulunamadı" : "📋 Filtreli Görev Yok"}
                   </h3>
                   <p className="text-gray-600 text-sm max-w-md mx-auto">
                     {activeFilter === "all"
@@ -498,12 +521,12 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                           activeFilter === "new"
                             ? "🆕 Yeni"
                             : activeFilter === "assigned"
-                              ? "⏳ Bekleyen"
-                              : activeFilter === "in_progress"
-                                ? "🚌 Aktif"
-                                : activeFilter === "completed"
-                                  ? "✅ Tamamlanan"
-                                  : "❌ İptal edilen"
+                            ? "⏳ Bekleyen"
+                            : activeFilter === "in_progress"
+                            ? "🚌 Aktif"
+                            : activeFilter === "completed"
+                            ? "✅ Tamamlanan"
+                            : "❌ İptal edilen"
                         } görev bulunamadı.`}
                   </p>
                 </div>
