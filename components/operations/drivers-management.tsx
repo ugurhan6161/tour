@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Phone, Car, User, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react"
+import { Phone, Car, User, CheckCircle, XCircle, Edit, Trash2, Users, Search } from "lucide-react"
 
 interface DriversManagementProps {
   drivers: any[]
@@ -21,6 +21,7 @@ interface DriversManagementProps {
 export default function DriversManagement({ drivers, onDriverUpdate }: DriversManagementProps) {
   const [editingDriver, setEditingDriver] = useState<any>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
@@ -103,67 +104,167 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
     }
   }
 
+  const filteredDrivers = drivers.filter((driver) => {
+    const matchesSearch = searchQuery === "" ||
+      driver.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      driver.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (driver.drivers?.vehicle_plate || driver.vehicle_plate)?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    return matchesSearch
+  })
+
+  const activeDriversCount = drivers.filter(driver => {
+    const driverInfo = driver.drivers || driver
+    return driverInfo?.is_active === true
+  }).length
+
+  const inactiveDriversCount = drivers.length - activeDriversCount
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Şöför Yönetimi</CardTitle>
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Card className="shadow-lg border-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-blue-500 rounded-lg shadow-lg">
+                <Users className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-600">{drivers.length}</p>
+                <p className="text-sm font-medium text-blue-700">Toplam Şoför</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg border-0 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-green-500 rounded-lg shadow-lg">
+                <CheckCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-600">{activeDriversCount}</p>
+                <p className="text-sm font-medium text-green-700">Aktif Şoför</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg border-0 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-red-500 rounded-lg shadow-lg">
+                <XCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-red-600">{inactiveDriversCount}</p>
+                <p className="text-sm font-medium text-red-700">Pasif Şoför</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+            <CardTitle className="flex items-center space-x-2 text-gray-800">
+              <Users className="h-5 w-5 text-gray-600" />
+              <span>Şoför Yönetimi</span>
+            </CardTitle>
+            
+            {/* Search */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Şoför ara..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 rounded-lg border-2 border-gray-200 focus:border-blue-400 bg-white/80"
+              />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        
+        <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {drivers.map((driver) => {
+            {filteredDrivers.map((driver) => {
               const driverInfo = driver.drivers || driver
               const vehiclePlate = driverInfo?.vehicle_plate || "Araç yok"
               const isActive = driverInfo?.is_active ?? true
               const licenseNumber = driverInfo?.license_number
 
               return (
-                <Card key={driver.id} className="border-l-4 border-l-blue-500">
+                <Card key={driver.id} className="shadow-lg border-0 bg-white rounded-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-blue-600 text-white">
+                        <Avatar className="h-12 w-12 ring-2 ring-blue-100">
+                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
                             {driver.full_name?.charAt(0) || "Ş"}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{driver.full_name}</h3>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 text-sm">{driver.full_name}</h3>
                           <Badge
-                            className={`text-xs ${
-                              isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                            className={`text-xs mt-1 ${
+                              isActive 
+                                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white" 
+                                : "bg-gradient-to-r from-red-500 to-pink-500 text-white"
                             }`}
                           >
-                            {isActive ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-                            {isActive ? "Aktif" : "Pasif"}
+                            {isActive ? (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Aktif
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Pasif
+                              </>
+                            )}
                           </Badge>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{driver.phone || "Telefon yok"}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Car className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{vehiclePlate}</span>
-                      </div>
-                      {licenseNumber && (
+                    <div className="space-y-3">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg">
                         <div className="flex items-center space-x-2">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">Ehliyet: {licenseNumber}</span>
+                          <Phone className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800">Telefon</span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1 font-medium">{driver.phone || "Telefon yok"}</p>
+                      </div>
+
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Car className="h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-800">Araç Plakası</span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1 font-medium">{vehiclePlate}</p>
+                      </div>
+
+                      {licenseNumber && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-800">Ehliyet No</span>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1 font-medium">{licenseNumber}</p>
                         </div>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
                       <Button
                         onClick={() => handleEdit(driver)}
                         size="sm"
                         variant="outline"
-                        className="flex items-center space-x-1"
+                        className="flex items-center space-x-2 border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                       >
                         <Edit className="h-3 w-3" />
                         <span>Düzenle</span>
@@ -172,7 +273,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                         onClick={() => handleDelete(driver.id)}
                         size="sm"
                         variant="outline"
-                        className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                        className="flex items-center space-x-2 border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
                       >
                         <Trash2 className="h-3 w-3" />
                         <span>Sil</span>
@@ -184,60 +285,92 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
             })}
           </div>
 
-          {drivers.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Şöför bulunamadı.</p>
+          {filteredDrivers.length === 0 && (
+            <div className="text-center py-12">
+              <div className="p-4 bg-gray-100 rounded-full inline-block mb-4">
+                <Users className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {searchQuery ? "Arama sonucu bulunamadı" : "Şoför bulunamadı"}
+              </h3>
+              <p className="text-gray-600">
+                {searchQuery 
+                  ? `"${searchQuery}" için arama sonucu bulunamadı.`
+                  : "Henüz kayıtlı şoför bulunmuyor."
+                }
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Şöför Bilgilerini Düzenle</DialogTitle>
+        <DialogContent className="max-w-md mx-auto rounded-xl">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center space-x-2 text-gray-800">
+              <Edit className="h-5 w-5 text-blue-600" />
+              <span>Şoför Bilgilerini Düzenle</span>
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label htmlFor="full_name">Ad Soyad</Label>
+              <Label htmlFor="full_name" className="text-sm font-semibold text-gray-700">Ad Soyad</Label>
               <Input
                 id="full_name"
                 value={formData.full_name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, full_name: e.target.value }))}
                 required
+                className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefon</Label>
+              <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Telefon</Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
+                placeholder="0555 123 45 67"
               />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="vehicle_plate">Araç Plakası</Label>
+              <Label htmlFor="vehicle_plate" className="text-sm font-semibold text-gray-700">Araç Plakası</Label>
               <Input
                 id="vehicle_plate"
                 value={formData.vehicle_plate}
                 onChange={(e) => setFormData((prev) => ({ ...prev, vehicle_plate: e.target.value }))}
-                placeholder="Örn: 34 ABC 123"
+                placeholder="34 ABC 123"
+                className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="license_number">Ehliyet Numarası</Label>
+              <Label htmlFor="license_number" className="text-sm font-semibold text-gray-700">Ehliyet Numarası</Label>
               <Input
                 id="license_number"
                 value={formData.license_number}
                 onChange={(e) => setFormData((prev) => ({ ...prev, license_number: e.target.value }))}
                 placeholder="Ehliyet numarasını girin"
+                className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
-            <div className="flex space-x-2 pt-4">
-              <Button type="submit" className="flex-1">
+            
+            <div className="flex space-x-2 pt-6 border-t">
+              <Button 
+                type="submit" 
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
                 Kaydet
               </Button>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)} 
+                className="flex-1 border-2 border-gray-300 hover:bg-gray-50"
+              >
                 İptal
               </Button>
             </div>
