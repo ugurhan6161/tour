@@ -6,34 +6,56 @@ import { createClient } from "@/lib/supabase/client";
 import DriverDashboard from "@/components/driver/driver-dashboard";
 import { Car, MapPin, AlertTriangle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import toast from "react-hot-toast";
 
 export default function DriverPage() {
-  const [profile, setProfile] = useState(null);
-  const [driver, setDriver] = useState(null);
-  const [tasks, setTasks] = useState([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [driver, setDriver] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     async function loadDriverData() {
       try {
-        console.log("[v0] Driver page: Starting authentication check");
-        const supabase = createClient();
+        console.log("[v0] Driver page: Starting session check");
+        // Oturum kontrolü
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
+        if (sessionError || !session) {
+          console.error("[v0] Driver page: No active session:", sessionError);
+          toast.error("Oturum bulunamadı, lütfen giriş yapın.");
+          router.push("/auth/login");
+          return;
+        }
+
+        console.log("[v0] Driver page: Session found, user ID:", session.user.id);
+
+        // Kullanıcı bilgilerini al
         const {
           data: { user },
           error: userError,
         } = await supabase.auth.getUser();
 
         if (userError || !user) {
-          console.error("[v0] Driver page: No authenticated user:", userError);
+          console.error("[v0] Driver page: No authenticated user:", {
+            message: userError?.message,
+            code: userError?.code,
+            status: userError?.status,
+          });
+          toast.error("Kullanıcı doğrulanamadı, lütfen tekrar giriş yapın.");
           router.push("/auth/login");
           return;
         }
 
         console.log("[v0] Driver page: User authenticated:", user.id);
 
+        // Profil bilgilerini al
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
@@ -41,13 +63,19 @@ export default function DriverPage() {
           .single();
 
         if (profileError || !profileData) {
-          console.error("[v0] Driver page: Error fetching profile:", profileError);
+          console.error("[v0] Driver page: Error fetching profile:", {
+            message: profileError?.message,
+            code: profileError?.code,
+            status: profileError?.status,
+          });
+          toast.error("Profil bilgileri alınamadı.");
           router.push("/auth/login");
           return;
         }
 
         if (profileData.role !== "driver") {
           console.error("[v0] Driver page: User is not a driver:", profileData.role);
+          toast.error("Bu hesap şoför paneline erişim yetkisine sahip değil.");
           router.push("/auth/login");
           return;
         }
@@ -55,41 +83,56 @@ export default function DriverPage() {
         setProfile(profileData);
         console.log("[v0] Driver page: Profile obtained:", profileData.id);
 
+        // Şoför bilgilerini al
         const { data: driverData, error: driverError } = await supabase
           .from("drivers")
           .select("*")
           .eq("user_id", profileData.id)
           .single();
 
-        console.log("[v0] Driver page: Driver query result:", { driver: driverData, driverError });
-
         if (driverError || !driverData) {
-          console.error("[v0] Driver page: Error fetching driver or no driver found:", driverError);
+          console.error("[v0] Driver page: Error fetching driver or no driver found:", {
+            message: driverError?.message,
+            code: driverError?.code,
+            status: driverError?.status,
+          });
+          toast.error("Şoför bilgileri alınamadı.");
           router.push("/auth/login");
           return;
         }
 
         setDriver(driverData);
+        console.log("[v0] Driver page: Driver query result:", { driver: driverData });
 
+        // Görevleri al
         const { data: tasksData, error: tasksError } = await supabase
           .from("driver_tasks_view")
           .select("*")
           .eq("assigned_driver_id", profileData.id)
           .order("pickup_date", { ascending: true });
 
-        console.log("[v0] Driver page: Tasks query result:", { tasksCount: tasksData?.length, tasksError });
-
         if (tasksError) {
-          console.error("[v0] Driver page: Error fetching tasks:", tasksError);
+          console.error("[v0] Driver page: Error fetching tasks:", {
+            message: tasksError?.message,
+            code: tasksError?.code,
+            status: tasksError?.status,
+          });
+          toast.error("Görevler alınırken hata oluştu.");
           setTasks([]);
         } else {
           setTasks(tasksData || []);
+          console.log("[v0] Driver page: Tasks query result:", { tasksCount: tasksData?.length });
         }
 
         console.log("[v0] Driver page: Data loaded successfully");
-      } catch (error) {
-        console.error("[v0] Driver page: Unexpected error:", error);
-        setError(error.message);
+      } catch (error: any) {
+        console.error("[v0] Driver page: Unexpected error:", {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
+        setError(error.message || "Bilinmeyen bir hata oluştu");
+        toast.error(`Hata: ${error.message || "Bilinmeyen bir hata oluştu"}`);
         router.push("/auth/login");
       } finally {
         setLoading(false);
@@ -97,7 +140,7 @@ export default function DriverPage() {
     }
 
     loadDriverData();
-  }, [router]);
+  }, [router, supabase]);
 
   if (loading) {
     return (

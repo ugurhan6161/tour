@@ -242,20 +242,7 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div className="flex items-center space-x-3 sm:space-x-4">
-              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 ring-2 ring-blue-500/20">
-                <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-lg">
-                  {profile.full_name?.charAt(0) || "Ş"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center space-x-2">
-                  <Bus className="h-5 w-5 text-blue-600" />
-                  <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">Tur Şoför Paneli</h1>
-                </div>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">Hoş geldiniz, {profile.full_name}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 bg-white/20 rounded-xl p-2 backdrop-blur-sm">
                 {isDriverActive ? (
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -268,6 +255,15 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
               </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center space-x-2">
+                  <Bus className="h-5 w-5 text-blue-600" />
+                  <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">Tur Şoför Paneli</h1>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-600 truncate">Hoş geldiniz, {profile.full_name}</p>
+              </div>
+            </div>
+
               <Button
                 onClick={refreshTasks}
                 variant="outline"
