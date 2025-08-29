@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import OperationsDashboard from "@/components/operations/operations-dashboard";
 import { Car, MapPin, AlertTriangle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export default function OperationsPage() {
   const [profile, setProfile] = useState(null);
@@ -112,16 +113,18 @@ export default function OperationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-white to-white">
         <div className="text-center space-y-6">
-          <div className="relative flex items-center justify-center">
-            {/* Pulsing Map Pin */}
-            <div className="absolute animate-pulse">
-              <MapPin className="h-12 w-12 text-red-500" />
-            </div>
-            {/* Moving Car */}
-            <div className="relative animate-[moveCar_2s_ease-in-out_infinite]">
-              <Car className="h-8 w-8 text-blue-600 transform rotate-45" />
+          <div className="flex justify-center">
+            {/* Resmi ekledik ve mobil uyumlu hale getirdik */}
+            <div className="relative w-48 h-48 md:w-64 md:h-64 animate-pulse">
+              <Image
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0zCbCWJQel7wZYoNmMnOJRuiTyNgfEQUwXw&s"
+                alt="Yükleniyor..."
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
           </div>
           <p className="text-lg font-semibold text-gray-800">Operasyon Paneli Yükleniyor...</p>

@@ -7,6 +7,7 @@ import DriverDashboard from "@/components/driver/DriverDashboard";
 import { Car, MapPin, AlertTriangle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import Image from "next/image"; // Next.js Image component'ini ekledik
 
 export default function DriverPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -144,27 +145,23 @@ export default function DriverPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-white to-white">
         <div className="text-center space-y-6">
-          <div className="relative flex items-center justify-center">
-            {/* Pulsing Map Pin */}
-            <div className="absolute animate-pulse">
-              <MapPin className="h-12 w-12 text-red-500" />
-            </div>
-            {/* Moving Car */}
-            <div className="relative animate-[moveCar_2s_ease-in-out_infinite]">
-              <Car className="h-8 w-8 text-blue-600 transform rotate-45" />
+          <div className="flex justify-center">
+            {/* Resmi ekledik ve mobil uyumlu hale getirdik */}
+            <div className="relative w-48 h-48 md:w-64 md:h-64 animate-pulse">
+              <Image
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0zCbCWJQel7wZYoNmMnOJRuiTyNgfEQUwXw&s"
+                alt="Yükleniyor..."
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
           </div>
           <p className="text-lg font-semibold text-gray-800">Şoför Paneli Yükleniyor...</p>
           <p className="text-sm text-gray-500 animate-pulse">Görevleriniz hazırlanıyor, lütfen bekleyin.</p>
         </div>
-        <style jsx>{`
-          @keyframes moveCar {
-            0%, 100% { transform: translateX(-20px) rotate(45deg); }
-            50% { transform: translateX(20px) rotate(45deg); }
-          }
-        `}</style>
       </div>
     );
   }
@@ -192,8 +189,8 @@ export default function DriverPage() {
 
   if (!profile || !driver) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200">
-        <div className="text-center space-y-6 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-white to-white">
+        <div className="text-center space-y-6 p-6 bg-white rounded-xl shadow-lg border border-white">
           <div className="flex justify-center">
             <Car className="h-12 w-12 text-blue-500 animate-bounce" />
           </div>
