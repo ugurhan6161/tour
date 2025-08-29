@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import DriverDashboard from "@/components/driver/driver-dashboard";
+import DriverDashboard from "@/components/driver/DriverDashboard";
 import { Car, MapPin, AlertTriangle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
