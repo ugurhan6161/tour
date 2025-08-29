@@ -1,8 +1,7 @@
-// components/NotificationComponent.jsx güncellemesi
+// components/NotificationComponent.jsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getFCMToken, onMessageListener } from '@/lib/firebase';
 import { createClient } from '@/lib/supabase/client';
 
 const NotificationComponent = () => {
@@ -10,49 +9,41 @@ const NotificationComponent = () => {
   const supabase = createClient();
 
   useEffect(() => {
-    // Kullanıcı oturum durumunu kontrol et
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
+    // Sadece tarayıcı ortamında çalıştır
+    if (typeof window === 'undefined') return;
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    // Sadece oturum açmış kullanıcılar için bildirimleri etkinleştir
-    if (user) {
-      const requestNotificationPermission = async () => {
-        try {
-          const token = await getFCMToken();
-          if (token) {
-            // Token'ı Supabase'e kaydet
+    // Firebase'i dinamik olarak import et
+    const initializeNotifications = async () => {
+      try {
+        const { getFCMToken, onMessageListener } = await import('@/lib/firebase');
+        
+        const token = await getFCMToken();
+        if (token) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
             await supabase
               .from('profiles')
               .update({ fcm_token: token })
               .eq('id', user.id);
           }
-        } catch (error) {
-          console.error('Bildirim izni alınamadı:', error);
         }
-      };
 
-      requestNotificationPermission();
+        onMessageListener().then(payload => {
+          console.log('Bildirim alındı:', payload);
+          if (Notification.permission === 'granted') {
+            new Notification(payload.notification.title, {
+              body: payload.notification.body,
+              icon: '/logo.png'
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Bildirim başlatılamadı:', error);
+      }
+    };
 
-      // Ön planda gelen bildirimleri dinle
-      onMessageListener().then(payload => {
-        console.log('Bildirim alındı:', payload);
-        // Bildirimi göster
-        if (Notification.permission === 'granted') {
-          new Notification(payload.notification.title, {
-            body: payload.notification.body,
-            icon: '/logo.png'
-          });
-        }
-      });
-    }
-  }, [user]); // user değiştiğinde bu effect tekrar çalışacak
+    initializeNotifications();
+  }, []);
 
   return null;
 };
