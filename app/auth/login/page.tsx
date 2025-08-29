@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { Checkbox } from "@/components/ui/checkbox" // Import checkbox component
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -17,100 +18,126 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPanel, setSelectedPanel] = useState<"driver" | "operations" | null>(null)
+  const [rememberMe, setRememberMe] = useState(false) // New state for remember me
   const router = useRouter()
 
- const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // Check for saved credentials on component mount
+  useEffect(() => {
+    const checkSavedSession = async () => {
+      const savedSession = localStorage.getItem("rememberMe")
+      if (savedSession) {
+        const { email: savedEmail, panel: savedPanel } = JSON.parse(savedSession)
+        setEmail(savedEmail)
+        setSelectedPanel(savedPanel as "driver" | "operations")
+        setRememberMe(true)
+      }
+    }
 
-  if (!selectedPanel) {
-    setError("Lütfen hangi panele giriş yapmak istediğinizi seçin");
-    return;
-  }
+    checkSavedSession()
+  }, [])
 
-  const supabase = createClient();
-  setIsLoading(true);
-  setError(null);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  try {
-    console.log("[v0] Login attempt for:", email);
+    if (!selectedPanel) {
+      setError("Lütfen hangi panele giriş yapmak istediğinizi seçin");
+      return;
+    }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const supabase = createClient();
+    setIsLoading(true);
+    setError(null);
 
-    if (error) throw error;
+    try {
+      console.log("[v0] Login attempt for:", email);
 
-    console.log("[v0] Login successful, user ID:", data.user.id);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    let { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
+      if (error) throw error;
 
-    if (profileError && profileError.code === "PGRST116") {
-      console.log("[v0] Profile not found, creating new profile");
-      const { data: newProfile, error: createError } = await supabase
+      console.log("[v0] Login successful, user ID:", data.user.id);
+
+      // Save to localStorage if "Remember Me" is checked
+      if (rememberMe) {
+        localStorage.setItem("rememberMe", JSON.stringify({
+          email,
+          panel: selectedPanel
+        }));
+      } else {
+        localStorage.removeItem("rememberMe");
+      }
+
+      let { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .insert({
-          id: data.user.id,
-          email: data.user.email,
-          full_name: data.user.email,
-          role: "driver",
-        })
         .select("role")
+        .eq("id", data.user.id)
         .single();
 
-      if (createError) throw createError;
-      profile = newProfile;
-      console.log("[v0] Profile created successfully:", profile);
-    } else if (profileError) {
-      throw profileError;
-    }
+      if (profileError && profileError.code === "PGRST116") {
+        console.log("[v0] Profile not found, creating new profile");
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            full_name: data.user.email,
+            role: "driver",
+          })
+          .select("role")
+          .single();
 
-    if (!profile) {
-      setError("Kullanıcı profili bulunamadı");
-      return;
-    }
-
-    console.log("[v0] User role:", profile.role, "Selected panel:", selectedPanel);
-
-    if (selectedPanel === "driver" && profile.role !== "driver") {
-      setError("Bu hesap şöför paneline erişim yetkisine sahip değil");
-      return;
-    }
-
-    if (selectedPanel === "operations" && !["operations", "admin"].includes(profile.role)) {
-      setError("Bu hesap operasyon paneline erişim yetkisine sahip değil");
-      return;
-    }
-
-    console.log("[v0] Role check passed, redirecting to:", selectedPanel === "driver" ? "/driver" : "/operations");
-
-    // Yönlendirme
-    if (selectedPanel === "driver") {
-      router.push("/driver");
-    } else {
-      router.push("/operations");
-    }
-  } catch (error: unknown) {
-    console.log("[v0] Login error:", error);
-    if (error instanceof Error) {
-      if (error.message.includes("Invalid login credentials")) {
-        setError("Geçersiz e-posta veya şifre");
-      } else if (error.message.includes("Email not confirmed")) {
-        setError("E-posta adresinizi doğrulamanız gerekiyor");
-      } else {
-        setError(`Giriş yapılırken bir hata oluştu: ${error.message}`);
+        if (createError) throw createError;
+        profile = newProfile;
+        console.log("[v0] Profile created successfully:", profile);
+      } else if (profileError) {
+        throw profileError;
       }
-    } else {
-      setError("Bilinmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+
+      if (!profile) {
+        setError("Kullanıcı profili bulunamadı");
+        return;
+      }
+
+      console.log("[v0] User role:", profile.role, "Selected panel:", selectedPanel);
+
+      if (selectedPanel === "driver" && profile.role !== "driver") {
+        setError("Bu hesap şöför paneline erişim yetkisine sahip değil");
+        return;
+      }
+
+      if (selectedPanel === "operations" && !["operations", "admin"].includes(profile.role)) {
+        setError("Bu hesap operasyon paneline erişim yetkisine sahip değil");
+        return;
+      }
+
+      console.log("[v0] Role check passed, redirecting to:", selectedPanel === "driver" ? "/driver" : "/operations");
+
+      // Yönlendirme
+      if (selectedPanel === "driver") {
+        router.push("/driver");
+      } else {
+        router.push("/operations");
+      }
+    } catch (error: unknown) {
+      console.log("[v0] Login error:", error);
+      if (error instanceof Error) {
+        if (error.message.includes("Invalid login credentials")) {
+          setError("Geçersiz e-posta veya şifre");
+        } else if (error.message.includes("Email not confirmed")) {
+          setError("E-posta adresinizi doğrulamanız gerekiyor");
+        } else {
+          setError(`Giriş yapılırken bir hata oluştu: ${error.message}`);
+        }
+      } else {
+        setError("Bilinmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+      }
+    } finally {
+      setIsLoading(false);
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -210,6 +237,22 @@ export default function LoginPage() {
                       className="h-11"
                     />
                   </div>
+                  
+                  {/* Remember Me Checkbox */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="rememberMe" 
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <Label
+                      htmlFor="rememberMe"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Oturumu açık tut
+                    </Label>
+                  </div>
+                  
                   {error && (
                     <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
                   )}

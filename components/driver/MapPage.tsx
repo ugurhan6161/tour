@@ -236,7 +236,7 @@ export default function MapPage({
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <MapIcon className="h-5 w-5 text-green-600" />
-              <span className="text-base font-bold text-gray-800">Harita ve Konumlar</span>
+              
             </div>
             <Button
               onClick={() => setIsAddLocationMode(!isAddLocationMode)}
@@ -259,7 +259,7 @@ export default function MapPage({
             )}
             <div 
               ref={mapRef}
-              className="w-full h-80 rounded-lg border-2 border-gray-200"
+              className="w-full rounded-lg border-2 border-gray-200 px-[-0px] px-[-10px] px-[-30px] px-[-40px] px-[-50px] px-[-60px] px-0 space-y-0 h-96"
               style={{ minHeight: '320px' }}
             >
               {!mapLoaded && (

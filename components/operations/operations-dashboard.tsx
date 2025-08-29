@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Users, Calendar, MapPin, LogOut, RefreshCw, Activity, Clock, CheckCircle, XCircle, Navigation, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Users, Calendar, MapPin, LogOut, RefreshCw, Activity, Clock, CheckCircle, XCircle, Navigation, BarChart3, ChevronDown, ChevronUp, Map, Route } from "lucide-react";
 import TaskCreationForm from "./task-creation-form";
 import TasksTable from "./tasks-table";
 import DriversManagement from "./drivers-management";
+import MapPage from "@/components/driver/MapPage";
+import RoutesPage from "@/components/driver/RoutesPage";
 
 interface OperationsDashboardProps {
   profile: any;
@@ -25,8 +27,67 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [currentDrivers, setCurrentDrivers] = useState(drivers);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(false); // Collapsible state
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
+
+  // Konumları yükle
+  const loadLocations = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('driver_locations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error) {
+      console.error("Error loading locations:", error);
+      setError("Konumlar yüklenirken hata oluştu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Rotaları yükle
+  const loadRoutes = async () => {
+    try {
+      setLoading(true);
+      const { data: routesData, error: routesError } = await supabase
+        .from('tour_routes')
+        .select(`
+          *,
+          route_places (
+            id,
+            route_id,
+            place_name,
+            order_index
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (routesError) throw routesError;
+      setRoutes(routesData || []);
+    } catch (error) {
+      console.error("Error loading routes:", error);
+      setError("Rotalar yüklenirken hata oluştu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Aktif sekme değiştiğinde verileri yükle
+  useEffect(() => {
+    if (activeTab === "map") {
+      loadLocations();
+    } else if (activeTab === "routes") {
+      loadRoutes();
+    }
+  }, [activeTab]);
 
   const refreshTasks = async () => {
     setIsRefreshing(true);
@@ -283,7 +344,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-2 sm:p-3">
-              <TabsList className="grid w-full grid-cols-3 bg-white/50 rounded-lg p-1">
+              <TabsList className="grid grid-cols-3 md:grid-cols-5 bg-white/50 rounded-lg p-1 gap-1">
                 <TabsTrigger 
                   value="overview" 
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
@@ -294,13 +355,25 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                   value="tasks" 
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
-                  📋 Tüm Görevler
+                  📋 Görevler
                 </TabsTrigger>
                 <TabsTrigger 
                   value="drivers" 
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   👥 Şoförler
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="map" 
+                  className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+                >
+                  🗺️ Harita
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="routes" 
+                  className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+                >
+                  🛣️ Rotalar
                 </TabsTrigger>
               </TabsList>
             </CardHeader>
@@ -399,6 +472,24 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                         <span className="text-xs sm:text-sm font-medium text-purple-700">Şoförleri Yönet</span>
                       </Button>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 mt-2 sm:mt-3">
+                      <Button
+                        onClick={() => setActiveTab("map")}
+                        variant="outline"
+                        className="h-14 sm:h-16 flex flex-col items-center justify-center space-y-1 border-2 border-green-200 hover:bg-green-50 shadow-md"
+                      >
+                        <Map className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                        <span className="text-xs sm:text-sm font-medium text-green-700">Haritayı Görüntüle</span>
+                      </Button>
+                      <Button
+                        onClick={() => setActiveTab("routes")}
+                        variant="outline"
+                        className="h-14 sm:h-16 flex flex-col items-center justify-center space-y-1 border-2 border-orange-200 hover:bg-orange-50 shadow-md"
+                      >
+                        <Route className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+                        <span className="text-xs sm:text-sm font-medium text-orange-700">Rotaları Görüntüle</span>
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -409,6 +500,28 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
 
               <TabsContent value="drivers" className="mt-0">
                 <DriversManagement drivers={currentDrivers} onDriverUpdate={handleDriverUpdate} />
+              </TabsContent>
+
+              <TabsContent value="map" className="mt-0">
+                <MapPage
+                  locations={locations}
+                  setLocations={setLocations}
+                  profile={profile}
+                  loading={loading}
+                  setLoading={setLoading}
+                  setError={setError}
+                />
+              </TabsContent>
+
+              <TabsContent value="routes" className="mt-0">
+                <RoutesPage
+                  routes={routes}
+                  setRoutes={setRoutes}
+                  profile={profile}
+                  loading={loading}
+                  setLoading={setLoading}
+                  setError={setError}
+                />
               </TabsContent>
             </CardContent>
           </Tabs>

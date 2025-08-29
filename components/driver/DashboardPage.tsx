@@ -96,8 +96,8 @@ export default function DashboardPage({
 
         {isDriverInfoExpanded && (
           <CardContent className="p-4 border-t border-gray-100">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-100 px-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-blue-500 rounded-lg shadow-lg flex-shrink-0">
                     <User className="h-4 w-4 text-white" />
