@@ -2,16 +2,96 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Phone, Car, User, CheckCircle, XCircle, Edit, Trash2, Users, Search } from "lucide-react"
+import { Phone, Car, User, CheckCircle, XCircle, Edit, Trash2, Users, Search, Star } from "lucide-react"
+
+// Driver Ratings Summary Component
+const DriverRatingsSummary = ({ driverId, supabase }: { driverId: string; supabase: any }) => {
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [totalRatings, setTotalRatings] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRatingsSummary = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('customer_ratings')
+          .select(`
+            rating,
+            task:tasks (
+              assigned_driver_id
+            )
+          `)
+          .eq('task.assigned_driver_id', driverId);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const total = data.reduce((sum: number, rating: any) => sum + rating.rating, 0);
+          setAverageRating(total / data.length);
+          setTotalRatings(data.length);
+        } else {
+          setAverageRating(null);
+          setTotalRatings(0);
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching ratings summary:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRatingsSummary();
+  }, [driverId, supabase]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-6 mt-1">
+        <div className="w-4 h-4 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (totalRatings === 0) {
+    return (
+      <p className="text-xs text-gray-500 mt-1">Henüz değerlendirme yok</p>
+    );
+  }
+
+  return (
+    <div className="flex items-center mt-1">
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-3 h-3 ${
+              star <= Math.round(averageRating || 0)
+                ? 'text-amber-500 fill-amber-500'
+                : 'text-gray-300'
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-xs font-medium text-amber-700 ml-1">
+        {averageRating?.toFixed(1)} ({totalRatings})
+      </span>
+    </div>
+  );
+};
 
 interface DriversManagementProps {
   drivers: any[]
@@ -29,7 +109,56 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
     license_number: "",
     is_active: true,
   })
+  const [selectedDriver, setSelectedDriver] = useState<any>(null)
+  const [isRatingsModalOpen, setIsRatingsModalOpen] = useState(false)
+  const [driverRatings, setDriverRatings] = useState<any[]>([])
+  const [loadingRatings, setLoadingRatings] = useState(false)
   const supabase = createClient()
+
+  // Fetch driver ratings
+const fetchDriverRatings = async (driverId: string) => {
+  try {
+    setLoadingRatings(true);
+    const { data, error } = await supabase
+      .from('customer_ratings')
+      .select(`
+        id,
+        rating,
+        review_text,
+        customer_name,
+        created_at,
+        task:tasks (
+          pickup_location,
+          dropoff_location,
+          pickup_date
+        )
+      `)
+      .eq('task.assigned_driver_id', driverId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const formattedRatings = (data || []).map((rating: any) => ({
+      ...rating,
+      task: rating.task && Array.isArray(rating.task) && rating.task.length > 0 
+        ? rating.task[0] 
+        : rating.task || null
+    }));
+
+    setDriverRatings(formattedRatings);
+    setSelectedDriver(driverId);
+    setIsRatingsModalOpen(true);
+  } catch (error) {
+    console.error("[v0] Error fetching driver ratings:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+  } finally {
+    setLoadingRatings(false);
+  }
+};
 
   console.log("[v0] Drivers data structure:", JSON.stringify(drivers, null, 2))
 
@@ -40,9 +169,9 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
     setFormData({
       full_name: driver.full_name || "",
       phone: driver.phone || "",
-      vehicle_plate: driver.drivers?.vehicle_plate || driver.vehicle_plate || "",
-      license_number: driver.drivers?.license_number || driver.license_number || "",
-      is_active: driver.drivers?.is_active ?? driver.is_active ?? true,
+      vehicle_plate: driver.driver_info?.vehicle_plate || "",
+      license_number: driver.driver_info?.license_number || "",
+      is_active: driver.driver_info?.is_active ?? true,
     })
     setIsDialogOpen(true)
   }
@@ -72,9 +201,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
 
       if (profileError) throw profileError
 
-      const driverId = editingDriver.drivers?.user_id || editingDriver.id
-
-      if (editingDriver.drivers?.user_id || editingDriver.user_id) {
+      if (editingDriver.driver_info) {
         const { error: driverError } = await supabase
           .from("drivers")
           .update({
@@ -82,12 +209,12 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
             license_number: formData.license_number,
             is_active: formData.is_active,
           })
-          .eq("user_id", driverId)
+          .eq("id", editingDriver.driver_info.id)
 
         if (driverError) throw driverError
       } else {
         const { error: createDriverError } = await supabase.from("drivers").insert({
-          user_id: editingDriver.id,
+          id: editingDriver.id,
           vehicle_plate: formData.vehicle_plate,
           license_number: formData.license_number,
           is_active: formData.is_active,
@@ -108,14 +235,13 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
     const matchesSearch = searchQuery === "" ||
       driver.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       driver.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (driver.drivers?.vehicle_plate || driver.vehicle_plate)?.toLowerCase().includes(searchQuery.toLowerCase())
+      (driver.driver_info?.vehicle_plate)?.toLowerCase().includes(searchQuery.toLowerCase())
     
     return matchesSearch
   })
 
   const activeDriversCount = drivers.filter(driver => {
-    const driverInfo = driver.drivers || driver
-    return driverInfo?.is_active === true
+    return driver.driver_info?.is_active === true
   }).length
 
   const inactiveDriversCount = drivers.length - activeDriversCount
@@ -191,7 +317,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDrivers.map((driver) => {
-              const driverInfo = driver.drivers || driver
+              const driverInfo = driver.driver_info || {}
               const vehiclePlate = driverInfo?.vehicle_plate || "Araç yok"
               const isActive = driverInfo?.is_active ?? true
               const licenseNumber = driverInfo?.license_number
@@ -201,11 +327,23 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <Avatar className="h-12 w-12 ring-2 ring-blue-100">
-                          <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
-                            {driver.full_name?.charAt(0) || "Ş"}
-                          </AvatarFallback>
-                        </Avatar>
+<Avatar className="h-12 w-12 ring-2 ring-blue-100">
+  {driver.driver_photos?.[0]?.photo_url ? (
+    <AvatarImage 
+      src={`${driver.driver_photos[0].photo_url}?t=${Date.now()}`}
+      alt={driver.full_name}
+      className="object-cover"
+      onError={(e) => {
+        console.error('Avatar image load error for driver:', driver.id);
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  ) : (
+    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
+      {driver.full_name?.charAt(0) || "Ş"}
+    </AvatarFallback>
+  )}
+</Avatar>
                         <div className="flex-1">
                           <h3 className="font-bold text-gray-900 text-sm">{driver.full_name}</h3>
                           <Badge
@@ -257,6 +395,25 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                           <p className="text-sm text-gray-700 mt-1 font-medium">{licenseNumber}</p>
                         </div>
                       )}
+                      
+                      {/* Ratings Summary */}
+                      <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-3 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Star className="h-4 w-4 text-amber-600 fill-amber-600" />
+                            <span className="text-sm font-medium text-amber-800">Değerlendirme</span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-xs h-6 border-amber-200 text-amber-700 hover:bg-amber-50"
+                            onClick={() => fetchDriverRatings(driver.id)}
+                          >
+                            Detay
+                          </Button>
+                        </div>
+                        <DriverRatingsSummary driverId={driver.id} supabase={supabase} />
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
@@ -304,6 +461,78 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
         </CardContent>
       </Card>
 
+      {/* Ratings Detail Modal */}
+      <Dialog open={isRatingsModalOpen} onOpenChange={setIsRatingsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center space-x-2 text-gray-800">
+              <Star className="h-5 w-5 text-amber-600 fill-amber-600" />
+              <span>Şoför Değerlendirmeleri</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingRatings ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              {driverRatings.length === 0 ? (
+                <div className="text-center py-8">
+                  <Star className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz değerlendirme yok</h3>
+                  <p className="text-gray-500">Bu şoför için henüz müşteri değerlendirmesi yapılmadı.</p>
+                </div>
+              ) : (
+                driverRatings.map((rating) => (
+                  <Card key={rating.id} className="border border-gray-200">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-4 h-4 ${
+                                    star <= rating.rating
+                                      ? 'text-amber-500 fill-amber-500'
+                                      : 'text-gray-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">{rating.rating}/5</span>
+                          </div>
+                          {rating.customer_name && (
+                            <p className="text-sm font-medium text-gray-700">{rating.customer_name}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(rating.created_at).toLocaleDateString('tr-TR')}
+                          </p>
+                        </div>
+                      </div>
+                      {rating.review_text && (
+                        <p className="text-sm text-gray-600 mt-3 bg-gray-50 p-3 rounded-lg">
+                          {rating.review_text}
+                        </p>
+                      )}
+                      {rating.task && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs text-gray-500">
+                            {new Date(rating.task.pickup_date).toLocaleDateString('tr-TR')} - {rating.task.pickup_location} → {rating.task.dropoff_location}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md mx-auto rounded-xl">
           <DialogHeader className="border-b pb-4">

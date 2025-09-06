@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, User, Calendar, MapPin, Phone, FileText, Search, Filter, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, User, Calendar, MapPin, Phone, FileText, Search, Filter, ChevronDown, ChevronUp, Edit, Upload, ArrowRightLeft, MessageCircle } from "lucide-react";
 import TaskEditModal from "./task-edit-modal";
+import FilesModal from "./files-modal";
+import DriverTransferModal from "./driver-transfer-modal";
+import CommunicationModal from "./communication-modal";
 
 interface TasksTableProps {
   tasks: any[];
@@ -24,16 +27,64 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
   const [driverFilter, setDriverFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [filesTask, setFilesTask] = useState<any>(null);
+  const [transferTask, setTransferTask] = useState<any>(null);
+  const [communicationTask, setCommunicationTask] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
   const supabase = createClient();
+
+  // Normalize driver data structure
+  const normalizeDriverData = (driver: any) => {
+    // Handle different data structures based on the other components
+    if (driver.drivers) {
+      // From operations-dashboard structure: profile with drivers nested
+      return {
+        user_id: driver.id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.drivers.vehicle_plate || driver.driver_info?.vehicle_plate || "",
+        license_number: driver.drivers.license_number || driver.driver_info?.license_number || "",
+        is_active: driver.drivers.is_active ?? driver.driver_info?.is_active ?? false
+      };
+    } else if (driver.driver_info) {
+      // From drivers-management structure: profile with driver_info nested
+      return {
+        user_id: driver.id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.driver_info.vehicle_plate || "",
+        license_number: driver.driver_info.license_number || "",
+        is_active: driver.driver_info.is_active ?? false
+      };
+    } else {
+      // Direct driver structure or fallback
+      return {
+        user_id: driver.id || driver.user_id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.vehicle_plate || "",
+        license_number: driver.license_number || "",
+        is_active: driver.is_active ?? false
+      };
+    }
+  };
+
+  // Normalize drivers data
+  const normalizedDrivers = drivers.map(normalizeDriverData);
+
+  // Find driver info for a task
+  const getDriverInfo = (task: any) => {
+    if (!task.assigned_driver_id) return null;
+    return normalizedDrivers.find(driver => driver.user_id === task.assigned_driver_id) || null;
+  };
 
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       searchQuery === "" ||
-      task.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.pickup_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.dropoff_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.title.toLowerCase().includes(searchQuery.toLowerCase());
+      (task.customer_name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (task.pickup_location?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (task.dropoff_location?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (task.title?.toLowerCase() || "").includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
     const matchesDriver = driverFilter === "all" || task.assigned_driver_id === driverFilter;
@@ -59,368 +110,322 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
     return matchesSearch && matchesStatus && matchesDriver && matchesDate;
   });
 
-  const deleteTask = async (taskId: string) => {
-    if (confirm("Bu görevi silmek istediğinizden emin misiniz?")) {
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-
-      if (!error) {
-        onTaskUpdate();
-      } else {
-        console.error("[TasksTable] Error deleting task:", error);
-      }
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "new":
-        return "bg-gradient-to-r from-blue-500 to-blue-600 text-white";
-      case "assigned":
-        return "bg-gradient-to-r from-yellow-500 to-amber-500 text-white";
-      case "in_progress":
-        return "bg-gradient-to-r from-orange-500 to-red-500 text-white";
-      case "completed":
-        return "bg-gradient-to-r from-green-500 to-emerald-500 text-white";
-      case "cancelled":
-        return "bg-gradient-to-r from-red-500 to-pink-500 text-white";
-      default:
-        return "bg-gradient-to-r from-gray-500 to-gray-600 text-white";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "new": return "YENİ";
-      case "assigned": return "ATANMIŞ";
-      case "in_progress": return "DEVAM EDİYOR";
-      case "completed": return "TAMAMLANDI";
-      case "cancelled": return "İPTAL EDİLDİ";
-      default: return status.toUpperCase();
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("tr-TR", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatTime = (timeString: string) => {
-    if (!timeString) return "Belirsiz";
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString("tr-TR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   return (
     <>
-      <div className="p-4 sm:p-6 px-0 py-0 space-y-6">
-        <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center space-x-2 text-gray-800">
-                <FileText className="h-5 w-5 text-gray-600" />
-                <span>Tüm Görevler ({filteredTasks.length})</span>
-              </CardTitle>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="sm:hidden flex items-center gap-2"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4" />
-                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            </div>
-            
-            <div className={`flex-col sm:flex-row gap-4 ${showFilters ? 'flex' : 'hidden sm:flex'}`}>
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  placeholder="Görev ara..." 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 rounded-lg border-2 border-gray-200 focus:border-blue-400 bg-white/80"
-                />
-              </div>
-              
-              {/* Status Filter */}
-              <div className="flex items-center space-x-2">
-                <Filter className="h-4 w-4 text-gray-400 hidden sm:block" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-40 rounded-lg border-2 border-gray-200 bg-white/80">
-                    <SelectValue placeholder="Durum" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-lg">
-                    <SelectItem value="all">Tüm Durumlar</SelectItem>
-                    <SelectItem value="new">Yeni</SelectItem>
-                    <SelectItem value="assigned">Atanmış</SelectItem>
-                    <SelectItem value="in_progress">Devam Ediyor</SelectItem>
-                    <SelectItem value="completed">Tamamlandı</SelectItem>
-                    <SelectItem value="cancelled">İptal Edildi</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Driver Filter */}
-              <Select value={driverFilter} onValueChange={setDriverFilter}>
-                <SelectTrigger className="w-full sm:w-40 rounded-lg border-2 border-gray-200 bg-white/80">
-                  <SelectValue placeholder="Şoför" />
-                </SelectTrigger>
-                <SelectContent className="rounded-lg">
-                  <SelectItem value="all">Tüm Şoförler</SelectItem>
-                  <SelectItem value="none">Atanmamış</SelectItem>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {/* Date Filter */}
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-400 hidden sm:block" />
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-full sm:w-40 rounded-lg border-2 border-gray-200 bg-white/80">
-                    <SelectValue placeholder="Tarih" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-lg">
-                    <SelectItem value="all">Tüm Tarihler</SelectItem>
-                    <SelectItem value="today">Bugün</SelectItem>
-                    <SelectItem value="yesterday">Dün</SelectItem>
-                    <SelectItem value="last7days">Son 7 Gün</SelectItem>
-                    <SelectItem value="last30days">Son 30 Gün</SelectItem>
-                  </SelectContent>
-                </Select>
+      <div className="space-y-6">
+        <Card className="border border-gray-200">
+          <CardHeader className="pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="text-lg font-bold text-gray-900">Görevler</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  onClick={() => setShowFilters(!showFilters)}
+                  variant="outline"
+                  className="border-gray-300"
+                >
+                  {showFilters ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Filtreleri Gizle
+                    </>
+                  ) : (
+                    <>
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filtreleri Göster
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </CardHeader>
-          
-          <CardContent className="p-0">
-            <div className="max-h-96 overflow-y-auto">
-              {/* Desktop Table View */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-gray-50 border-b">
-                    <TableRow>
-                      <TableHead className="font-semibold text-gray-700">Görev</TableHead>
-                      <TableHead className="font-semibold text-gray-700">Müşteri</TableHead>
-                      <TableHead className="font-semibold text-gray-700">Tarih & Saat</TableHead>
-                      <TableHead className="font-semibold text-gray-700">Güzergah</TableHead>
-                      <TableHead className="font-semibold text-gray-700">Şoför</TableHead>
-                      <TableHead className="font-semibold text-gray-700">Durum</TableHead>
-                      <TableHead className="font-semibold text-gray-700">İşlemler</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTasks.map((task, index) => (
-                      <TableRow key={task.id} className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        <TableCell className="p-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{task.title}</p>
-                            <p className="text-sm text-gray-500">ID: {task.id.slice(0, 8)}</p>
+
+          {showFilters && (
+            <CardContent className="pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="search">Arama</Label>
+                  <div className="relative mt-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="search"
+                      placeholder="Müşteri, lokasyon veya başlık ara..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="status">Durum</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status" className="mt-1">
+                      <SelectValue placeholder="Durum seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tümü</SelectItem>
+                      <SelectItem value="new">Yeni</SelectItem>
+                      <SelectItem value="assigned">Atanmış</SelectItem>
+                      <SelectItem value="in_progress">Devam Ediyor</SelectItem>
+                      <SelectItem value="completed">Tamamlandı</SelectItem>
+                      <SelectItem value="cancelled">İptal Edildi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="driver">Şoför</Label>
+                  <Select value={driverFilter} onValueChange={setDriverFilter}>
+                    <SelectTrigger id="driver" className="mt-1">
+                      <SelectValue placeholder="Şoför seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tümü</SelectItem>
+                      {normalizedDrivers.filter(d => d.is_active).map((driver) => (
+                        <SelectItem key={driver.user_id} value={driver.user_id}>
+                          {driver.full_name} ({driver.vehicle_plate})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="date">Tarih</Label>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger id="date" className="mt-1">
+                      <SelectValue placeholder="Tarih seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tümü</SelectItem>
+                      <SelectItem value="today">Bugün</SelectItem>
+                      <SelectItem value="yesterday">Dün</SelectItem>
+                      <SelectItem value="last7days">Son 7 Gün</SelectItem>
+                      <SelectItem value="last30days">Son 30 Gün</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          )}
+
+          <CardContent>
+            <div className="space-y-6">
+              <Table className="hidden lg:table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Görev</TableHead>
+                    <TableHead>Müşteri</TableHead>
+                    <TableHead>Güzergah</TableHead>
+                    <TableHead>Tarih</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Şoför</TableHead>
+                    <TableHead className="text-right">İşlemler</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTasks.map((task) => {
+                    const driverInfo = getDriverInfo(task);
+                    return (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">{task.title}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{task.customer_name}</span>
+                            {task.customer_phone && (
+                              <span className="text-xs text-gray-600">{task.customer_phone}</span>
+                            )}
                           </div>
                         </TableCell>
-                        
-                        <TableCell className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <User className="h-3 w-3 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{task.customer_name}</p>
-                              <p className="text-sm text-gray-600 flex items-center space-x-1">
-                                <Phone className="h-3 w-3" />
-                                <span>{task.customer_phone}</span>
-                              </p>
-                            </div>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <span>{task.pickup_location} → {task.dropoff_location}</span>
                           </div>
                         </TableCell>
-                        
-                        <TableCell className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="p-2 bg-green-100 rounded-lg">
-                              <Calendar className="h-3 w-3 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{formatDate(task.pickup_date)}</p>
-                              <p className="text-sm text-gray-600">{formatTime(task.pickup_time)}</p>
-                            </div>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 text-gray-500" />
+                            <span>{new Date(task.pickup_date).toLocaleDateString('tr-TR')}</span>
+                            {task.pickup_time && (
+                              <span className="text-xs text-gray-600">
+                                {new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
                           </div>
                         </TableCell>
-                        
-                        <TableCell className="p-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <p className="text-sm truncate max-w-32 text-gray-700">{task.pickup_location}</p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                              <p className="text-sm truncate max-w-32 text-gray-700">{task.dropoff_location}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="p-4">
-                          {task.driver_name ? (
-                            <div className="flex items-center space-x-2">
-                              <div className="p-2 bg-purple-100 rounded-lg">
-                                <User className="h-3 w-3 text-purple-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{task.driver_name}</p>
-                                <p className="text-sm text-gray-600">{task.vehicle_plate}</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <div className="p-2 bg-gray-100 rounded-lg">
-                                <User className="h-3 w-3 text-gray-400" />
-                              </div>
-                              <span className="text-gray-400 font-medium">Atanmamış</span>
-                            </div>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell className="p-4">
-                          <Badge className={`${getStatusColor(task.status)} text-xs font-semibold px-3 py-1 rounded-full shadow-sm`}>
-                            {getStatusText(task.status)}
+                        <TableCell>
+                          <Badge
+                            variant={
+                              task.status === 'completed' ? 'success' :
+                              task.status === 'cancelled' ? 'destructive' :
+                              task.status === 'in_progress' ? 'warning' :
+                              'default'
+                            }
+                          >
+                            {task.status === 'new' ? 'Yeni' :
+                             task.status === 'assigned' ? 'Atanmış' :
+                             task.status === 'in_progress' ? 'Devam Ediyor' :
+                             task.status === 'completed' ? 'Tamamlandı' :
+                             task.status === 'cancelled' ? 'İptal Edildi' : 'Bilinmeyen'}
                           </Badge>
                         </TableCell>
-                        
-                        <TableCell className="p-4">
-                          <div className="flex items-center space-x-2">
+                        <TableCell>
+                          {driverInfo ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium">{driverInfo.full_name}</span>
+                              <span className="text-xs text-gray-600">{driverInfo.vehicle_plate}</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-600">Atanmamış</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
                             <Button
                               onClick={() => setEditingTask(task)}
                               size="sm"
                               variant="outline"
-                              className="h-8 w-8 p-0 border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
-                              title="Görevi düzenle ve dosyaları yönet"
+                              className="h-8 w-8 p-0"
                             >
-                              <FileText className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
                             <Button
-                              onClick={() => deleteTask(task.id)}
+                              onClick={() => setFilesTask(task)}
                               size="sm"
                               variant="outline"
-                              className="h-8 w-8 p-0 border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-                              title="Görevi sil"
+                              className="h-8 w-8 p-0"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setTransferTask(task)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setCommunicationTask(task)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MessageCircle className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:hidden">
+                {filteredTasks.map((task) => {
+                  const driverInfo = getDriverInfo(task);
+                  return (
+                    <Card key={task.id} className="border border-gray-200">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-gray-900 text-sm truncate">{task.title}</h4>
+                            <Badge
+                              variant={
+                                task.status === 'completed' ? 'success' :
+                                task.status === 'cancelled' ? 'destructive' :
+                                task.status === 'in_progress' ? 'warning' :
+                                'default'
+                              }
+                              className="text-xs"
+                            >
+                              {task.status === 'new' ? 'Yeni' :
+                               task.status === 'assigned' ? 'Atanmış' :
+                               task.status === 'in_progress' ? 'Devam Ediyor' :
+                               task.status === 'completed' ? 'Tamamlandı' :
+                               task.status === 'cancelled' ? 'İptal Edildi' : 'Bilinmeyen'}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md">
+                            <User className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 text-xs truncate">{task.customer_name || "Bilinmeyen Müşteri"}</p>
+                              {task.customer_phone && (
+                                <p className="text-xs text-gray-600 mt-0.5 truncate">{task.customer_phone}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-green-50 rounded-md">
+                            <MapPin className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-gray-600 truncate">{task.pickup_location || "Bilinmeyen"} → {task.dropoff_location || "Bilinmeyen"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-md">
+                            <Calendar className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-gray-600">
+                                {new Date(task.pickup_date).toLocaleDateString('tr-TR')}
+                                {task.pickup_time && (
+                                  <span className="ml-1">
+                                    {new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-md">
+                            <User className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              {driverInfo ? (
+                                <>
+                                  <p className="font-medium text-gray-900 text-xs truncate">{driverInfo.full_name}</p>
+                                  <p className="text-xs text-gray-600 mt-0.5 truncate">{driverInfo.vehicle_plate}</p>
+                                </>
+                              ) : (
+                                <span className="text-gray-600 text-xs font-medium">Atanmamış</span>
+                              )}
+                            </div>
+                            <Button
+                              onClick={() => setTransferTask(task)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-orange-600 hover:bg-orange-100"
+                              title="Şoför değiştir"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button
+                              onClick={() => setEditingTask(task)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setFilesTask(task)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setCommunicationTask(task)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
-
-
-{/* Mobile Card View - Compact Version */}
-<div className="md:hidden p-3 space-y-3">
-  {filteredTasks.map((task) => (
-    <Card key={task.id} className="shadow-md border border-gray-200 rounded-lg overflow-hidden">
-      <CardContent className="p-3 space-y-3">
-        {/* Başlık, Durum ve İşlemler */}
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm truncate">{task.title}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">ID: {task.id.slice(0, 6)}...</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              onClick={() => setEditingTask(task)}
-              size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 border border-blue-200 text-blue-600 hover:bg-blue-50"
-              title="Görevi düzenle"
-            >
-              <FileText className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              onClick={() => deleteTask(task.id)}
-              size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 border border-red-200 text-red-600 hover:bg-red-50"
-              title="Görevi sil"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Durum */}
-        <div className="flex justify-center">
-          <Badge className={`${getStatusColor(task.status)} text-[10px] font-semibold px-2 py-0.5 rounded-full`}>
-            {getStatusText(task.status)}
-          </Badge>
-        </div>
-
-        {/* Müşteri Bilgileri - Compact */}
-        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md px-2 py-0">
-          <User className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-gray-900 text-xs truncate">{task.customer_name}</p>
-            <div className="flex items-center gap-1 mt-0.5">
-              <Phone className="h-3 w-3 text-gray-500 flex-shrink-0" />
-              <span className="text-xs text-gray-600 truncate">{task.customer_phone}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Tarih ve Saat - Compact */}
-        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-md py-0">
-          <Calendar className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-gray-900 text-xs">{formatDate(task.pickup_date)}</p>
-            <p className="text-xs text-gray-600 mt-0.5">{formatTime(task.pickup_time)}</p>
-          </div>
-        </div>
-
-        {/* Güzergah - Compact */}
-        <div className="p-2 bg-orange-50 rounded-md py-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <MapPin className="h-3.5 w-3.5 text-orange-600 flex-shrink-0" />
-            <span className="font-medium text-orange-800 text-xs">Güzergah</span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
-              <p className="text-xs text-gray-700 leading-tight truncate">{task.pickup_location}</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
-              <p className="text-xs text-gray-700 leading-tight truncate">{task.dropoff_location}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Şoför Bilgileri - Compact */}
-        <div className="flex items-center gap-2 p-2 bg-purple-50 rounded-md py-0">
-          <User className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" />
-          <div className="min-w-0 flex-1">
-            {task.driver_name ? (
-              <>
-                <p className="font-medium text-gray-900 text-xs truncate">{task.driver_name}</p>
-                <p className="text-xs text-gray-600 mt-0.5 truncate">{task.vehicle_plate}</p>
-              </>
-            ) : (
-              <span className="text-gray-600 text-xs font-medium">Atanmamış</span>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  ))}
-</div>
 
               {filteredTasks.length === 0 && (
                 <div className="text-center py-12">
@@ -444,15 +449,42 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
         </Card>
       </div>
 
+      {/* Modals */}
       {editingTask && (
         <TaskEditModal
           task={editingTask}
-          drivers={drivers}
+          drivers={normalizedDrivers}
           onClose={() => setEditingTask(null)}
           onSuccess={() => {
             setEditingTask(null);
             onTaskUpdate();
           }}
+        />
+      )}
+
+      {filesTask && (
+        <FilesModal
+          task={filesTask}
+          onClose={() => setFilesTask(null)}
+        />
+      )}
+
+      {transferTask && (
+        <DriverTransferModal
+          task={transferTask}
+          drivers={normalizedDrivers}
+          onClose={() => setTransferTask(null)}
+          onSuccess={() => {
+            setTransferTask(null);
+            onTaskUpdate();
+          }}
+        />
+      )}
+
+      {communicationTask && (
+        <CommunicationModal
+          task={communicationTask}
+          onClose={() => setCommunicationTask(null)}
         />
       )}
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Plus, Users, Calendar, MapPin, LogOut, RefreshCw, Activity, Clock, Chec
 import TaskCreationForm from "./task-creation-form";
 import TasksTable from "./tasks-table";
 import DriversManagement from "./drivers-management";
-import MapPage from "@/components/driver/MapPage";
+import LiveOperationsMap from "./live-operations-map";
 import RoutesPage from "@/components/driver/RoutesPage";
 
 interface OperationsDashboardProps {
@@ -34,29 +34,113 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  // Konumları yükle
+  // Normalize driver data structure
+  const normalizeDriverData = (driver: any) => {
+    // Handle different data structures based on the other components
+    if (driver.drivers) {
+      // From operations-dashboard structure: profile with drivers nested
+      return {
+        user_id: driver.id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.drivers.vehicle_plate || driver.driver_info?.vehicle_plate || "",
+        license_number: driver.drivers.license_number || driver.driver_info?.license_number || "",
+        is_active: driver.drivers.is_active ?? driver.driver_info?.is_active ?? false
+      };
+    } else if (driver.driver_info) {
+      // From drivers-management structure: profile with driver_info nested
+      return {
+        user_id: driver.id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.driver_info.vehicle_plate || "",
+        license_number: driver.driver_info.license_number || "",
+        is_active: driver.driver_info.is_active ?? false
+      };
+    } else {
+      // Direct driver structure or fallback
+      return {
+        user_id: driver.id || driver.user_id,
+        full_name: driver.full_name || "Bilinmeyen Şoför",
+        phone: driver.phone || "",
+        vehicle_plate: driver.vehicle_plate || "",
+        license_number: driver.license_number || "",
+        is_active: driver.is_active ?? false
+      };
+    }
+  };
+
+  // Normalize drivers data
+  const normalizedDrivers = useMemo(() => {
+    if (!drivers || !Array.isArray(drivers)) {
+      console.error("[OperationsDashboard] Invalid drivers prop:", drivers);
+      return [];
+    }
+    return drivers.map(normalizeDriverData);
+  }, [drivers]);
+
+  // Normalize currentDrivers data
+  const normalizedCurrentDrivers = useMemo(() => {
+    if (!currentDrivers || !Array.isArray(currentDrivers)) {
+      console.error("[OperationsDashboard] Invalid currentDrivers:", currentDrivers);
+      return [];
+    }
+    return currentDrivers.map(normalizeDriverData);
+  }, [currentDrivers]);
+
+  // Load locations with enhanced error handling
   const loadLocations = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { data, error } = await supabase
         .from('driver_locations')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error loading locations:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        // Handle empty table gracefully
+        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.log('Driver locations table appears to be empty or not exist, setting empty locations');
+          setLocations([]);
+          return;
+        }
+        
+        throw error;
+      }
+      
       setLocations(data || []);
+      console.log(`Loaded ${(data || []).length} locations`);
     } catch (error) {
-      console.error("Error loading locations:", error);
-      setError("Konumlar yüklenirken hata oluştu");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Error loading locations:", errorMessage);
+      
+      // Set empty locations instead of error state to prevent app crash
+      setLocations([]);
+      
+      // Only set error if it's a serious issue, not empty data
+      if (!errorMessage.includes('empty') && !errorMessage.includes('no rows')) {
+        setError("Konumlar yüklenirken hata oluştu");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Rotaları yükle
+  // Load routes with enhanced error handling
   const loadRoutes = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { data: routesData, error: routesError } = await supabase
         .from('tour_routes')
         .select(`
@@ -70,11 +154,37 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         `)
         .order('created_at', { ascending: false });
 
-      if (routesError) throw routesError;
+      if (routesError) {
+        console.error('Supabase error loading routes:', {
+          message: routesError.message,
+          details: routesError.details,
+          hint: routesError.hint,
+          code: routesError.code
+        });
+        
+        // Handle empty table gracefully
+        if (routesError.code === 'PGRST116' || routesError.message.includes('relation') || routesError.message.includes('does not exist')) {
+          console.log('Routes table appears to be empty or not exist, setting empty routes');
+          setRoutes([]);
+          return;
+        }
+        
+        throw routesError;
+      }
+      
       setRoutes(routesData || []);
+      console.log(`Loaded ${(routesData || []).length} routes`);
     } catch (error) {
-      console.error("Error loading routes:", error);
-      setError("Rotalar yüklenirken hata oluştu");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Error loading routes:", errorMessage);
+      
+      // Set empty routes instead of error state to prevent app crash
+      setRoutes([]);
+      
+      // Only set error if it's a serious issue, not empty data
+      if (!errorMessage.includes('empty') && !errorMessage.includes('no rows')) {
+        setError("Rotalar yüklenirken hata oluştu");
+      }
     } finally {
       setLoading(false);
     }
@@ -114,18 +224,29 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
       const { data, error } = await supabase
         .from("profiles")
         .select(`
-          *,
-          drivers (*)
+          id,
+          full_name,
+          phone,
+          drivers (
+            user_id,
+            vehicle_plate,
+            vehicle_model,
+            vehicle_color,
+            is_active
+          )
         `)
         .eq("role", "driver");
 
       if (error) {
         console.error("[OperationsDashboard] Error refreshing drivers:", error);
+        setCurrentDrivers([]);
       } else {
         setCurrentDrivers(data || []);
+        console.log("[OperationsDashboard] Refreshed drivers:", JSON.stringify(data, null, 2));
       }
     } catch (error) {
       console.error("[OperationsDashboard] Unexpected error refreshing drivers:", error);
+      setCurrentDrivers([]);
     }
   };
 
@@ -147,10 +268,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
   };
 
   const getActiveDrivers = () => {
-    return currentDrivers.filter((driver) => {
-      const driverInfo = driver.drivers || driver;
-      return driverInfo?.is_active === true;
-    }).length;
+    return normalizedCurrentDrivers.filter(driver => driver.is_active).length;
   };
 
   const handleLogout = async () => {
@@ -165,7 +283,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
   if (showCreateForm) {
     return (
       <TaskCreationForm
-        drivers={drivers}
+        drivers={normalizedDrivers}
         onCancel={() => setShowCreateForm(false)}
         onSuccess={() => {
           setShowCreateForm(false);
@@ -495,21 +613,26 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
               </TabsContent>
 
               <TabsContent value="tasks" className="mt-0">
-                <TasksTable tasks={tasks} drivers={drivers} onTaskUpdate={refreshTasks} profile={profile} />
+                <TasksTable
+                  tasks={tasks}
+                  drivers={normalizedDrivers}
+                  onTaskUpdate={refreshTasks}
+                  profile={profile}
+                />
               </TabsContent>
 
               <TabsContent value="drivers" className="mt-0">
-                <DriversManagement drivers={currentDrivers} onDriverUpdate={handleDriverUpdate} />
+                <DriversManagement
+                  drivers={normalizedCurrentDrivers}
+                  onDriverUpdate={handleDriverUpdate}
+                />
               </TabsContent>
 
               <TabsContent value="map" className="mt-0">
-                <MapPage
-                  locations={locations}
-                  setLocations={setLocations}
+                <LiveOperationsMap
                   profile={profile}
-                  loading={loading}
-                  setLoading={setLoading}
-                  setError={setError}
+                  drivers={normalizedCurrentDrivers}
+                  tasks={tasks}
                 />
               </TabsContent>
 

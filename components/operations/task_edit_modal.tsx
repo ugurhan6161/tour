@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,21 +18,6 @@ interface TaskEditModalProps {
 }
 
 export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModalProps) {
-  const [formData, setFormData] = useState({
-    title: task.title || "",
-    pickupLocation: task.pickup_location || "",
-    dropoffLocation: task.dropoff_location || "",
-    pickupDate: task.pickup_date || "",
-    pickupTime: task.pickup_time || "",
-    customerName: task.customer_name || "",
-    customerPhone: task.customer_phone || "",
-    customerNotes: task.customer_notes || "",
-    status: task.status || "new",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
-
   const handleInputChange = (field: string, value: string | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -200,4 +185,19 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
       </DialogContent>
     </Dialog>
   );
-}
+} [formData, setFormData] = useState({
+    title: task.title || "",
+    pickupLocation: task.pickup_location || "",
+    dropoffLocation: task.dropoff_location || "",
+    pickupDate: task.pickup_date || "",
+    pickupTime: task.pickup_time || "",
+    customerName: task.customer_name || "",
+    customerPhone: task.customer_phone || "",
+    customerNotes: task.customer_notes || "",
+    status: task.status || "new",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+
+  const
