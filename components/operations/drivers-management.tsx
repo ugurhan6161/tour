@@ -15,33 +15,33 @@ import { Phone, Car, User, CheckCircle, XCircle, Edit, Trash2, Users, Search, St
 
 // Driver Ratings Summary Component
 const DriverRatingsSummary = ({ driverId, supabase }: { driverId: string; supabase: any }) => {
-  const [averageRating, setAverageRating] = useState<number | null>(null);
-  const [totalRatings, setTotalRatings] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [averageRating, setAverageRating] = useState<number | null>(null)
+  const [totalRatings, setTotalRatings] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchRatingsSummary = async () => {
       try {
-        setLoading(true);
+        setLoading(true)
         const { data, error } = await supabase
-          .from('customer_ratings')
+          .from("customer_ratings")
           .select(`
             rating,
             task:tasks (
               assigned_driver_id
             )
           `)
-          .eq('task.assigned_driver_id', driverId);
+          .eq("task.assigned_driver_id", driverId)
 
-        if (error) throw error;
+        if (error) throw error
 
         if (data && data.length > 0) {
-          const total = data.reduce((sum: number, rating: any) => sum + rating.rating, 0);
-          setAverageRating(total / data.length);
-          setTotalRatings(data.length);
+          const total = data.reduce((sum: number, rating: any) => sum + rating.rating, 0)
+          setAverageRating(total / data.length)
+          setTotalRatings(data.length)
         } else {
-          setAverageRating(null);
-          setTotalRatings(0);
+          setAverageRating(null)
+          setTotalRatings(0)
         }
       } catch (error) {
         console.error("[v0] Error fetching ratings summary:", {
@@ -49,27 +49,25 @@ const DriverRatingsSummary = ({ driverId, supabase }: { driverId: string; supaba
           details: error.details,
           hint: error.hint,
           code: error.code,
-        });
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchRatingsSummary();
-  }, [driverId, supabase]);
+    fetchRatingsSummary()
+  }, [driverId, supabase])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-6 mt-1">
         <div className="w-4 h-4 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin"></div>
       </div>
-    );
+    )
   }
 
   if (totalRatings === 0) {
-    return (
-      <p className="text-xs text-gray-500 mt-1">Henüz değerlendirme yok</p>
-    );
+    return <p className="text-xs text-gray-500 mt-1">Henüz değerlendirme yok</p>
   }
 
   return (
@@ -79,9 +77,7 @@ const DriverRatingsSummary = ({ driverId, supabase }: { driverId: string; supaba
           <Star
             key={star}
             className={`w-3 h-3 ${
-              star <= Math.round(averageRating || 0)
-                ? 'text-amber-500 fill-amber-500'
-                : 'text-gray-300'
+              star <= Math.round(averageRating || 0) ? "text-amber-500 fill-amber-500" : "text-gray-300"
             }`}
           />
         ))}
@@ -90,8 +86,8 @@ const DriverRatingsSummary = ({ driverId, supabase }: { driverId: string; supaba
         {averageRating?.toFixed(1)} ({totalRatings})
       </span>
     </div>
-  );
-};
+  )
+}
 
 interface DriversManagementProps {
   drivers: any[]
@@ -116,49 +112,48 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
   const supabase = createClient()
 
   // Fetch driver ratings
-const fetchDriverRatings = async (driverId: string) => {
-  try {
-    setLoadingRatings(true);
-    const { data, error } = await supabase
-      .from('customer_ratings')
-      .select(`
-        id,
-        rating,
-        review_text,
-        customer_name,
-        created_at,
-        task:tasks (
-          pickup_location,
-          dropoff_location,
-          pickup_date
-        )
-      `)
-      .eq('task.assigned_driver_id', driverId)
-      .order('created_at', { ascending: false });
+  const fetchDriverRatings = async (driverId: string) => {
+    try {
+      setLoadingRatings(true)
+      const { data, error } = await supabase
+        .from("customer_ratings")
+        .select(`
+          id,
+          rating,
+          review_text,
+          customer_name,
+          created_at,
+          task:tasks (
+            pickup_location,
+            dropoff_location,
+            pickup_date
+          )
+        `)
+        .eq("task.assigned_driver_id", driverId)
+        .order("created_at", { ascending: false })
 
-    if (error) throw error;
+      if (error) throw error
 
-    const formattedRatings = (data || []).map((rating: any) => ({
-      ...rating,
-      task: rating.task && Array.isArray(rating.task) && rating.task.length > 0 
-        ? rating.task[0] 
-        : rating.task || null
-    }));
+      const formattedRatings = (data || []).map((rating: any) => ({
+        ...rating,
+        task:
+          rating.task && Array.isArray(rating.task) && rating.task.length > 0 ? rating.task[0] : rating.task || null,
+      }))
 
-    setDriverRatings(formattedRatings);
-    setSelectedDriver(driverId);
-    setIsRatingsModalOpen(true);
-  } catch (error) {
-    console.error("[v0] Error fetching driver ratings:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-  } finally {
-    setLoadingRatings(false);
+      setDriverRatings(formattedRatings)
+      setSelectedDriver(driverId)
+      setIsRatingsModalOpen(true)
+    } catch (error) {
+      console.error("[v0] Error fetching driver ratings:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+    } finally {
+      setLoadingRatings(false)
+    }
   }
-};
 
   console.log("[v0] Drivers data structure:", JSON.stringify(drivers, null, 2))
 
@@ -169,9 +164,9 @@ const fetchDriverRatings = async (driverId: string) => {
     setFormData({
       full_name: driver.full_name || "",
       phone: driver.phone || "",
-      vehicle_plate: driver.driver_info?.vehicle_plate || "",
-      license_number: driver.driver_info?.license_number || "",
-      is_active: driver.driver_info?.is_active ?? true,
+      vehicle_plate: driver.vehicle_plate || "",
+      license_number: driver.license_number || "",
+      is_active: driver.is_active ?? true,
     })
     setIsDialogOpen(true)
   }
@@ -197,31 +192,21 @@ const fetchDriverRatings = async (driverId: string) => {
           full_name: formData.full_name,
           phone: formData.phone,
         })
-        .eq("id", editingDriver.id)
+        .eq("id", editingDriver.user_id)
 
       if (profileError) throw profileError
 
-      if (editingDriver.driver_info) {
-        const { error: driverError } = await supabase
-          .from("drivers")
-          .update({
-            vehicle_plate: formData.vehicle_plate,
-            license_number: formData.license_number,
-            is_active: formData.is_active,
-          })
-          .eq("id", editingDriver.driver_info.id)
-
-        if (driverError) throw driverError
-      } else {
-        const { error: createDriverError } = await supabase.from("drivers").insert({
-          id: editingDriver.id,
+      // Update driver info
+      const { error: driverError } = await supabase
+        .from("drivers")
+        .update({
           vehicle_plate: formData.vehicle_plate,
           license_number: formData.license_number,
           is_active: formData.is_active,
         })
+        .eq("user_id", editingDriver.user_id)
 
-        if (createDriverError) throw createDriverError
-      }
+      if (driverError) throw driverError
 
       setIsDialogOpen(false)
       setEditingDriver(null)
@@ -232,18 +217,16 @@ const fetchDriverRatings = async (driverId: string) => {
   }
 
   const filteredDrivers = drivers.filter((driver) => {
-    const matchesSearch = searchQuery === "" ||
+    const matchesSearch =
+      searchQuery === "" ||
       driver.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       driver.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (driver.driver_info?.vehicle_plate)?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+      driver.vehicle_plate?.toLowerCase().includes(searchQuery.toLowerCase())
+
     return matchesSearch
   })
 
-  const activeDriversCount = drivers.filter(driver => {
-    return driver.driver_info?.is_active === true
-  }).length
-
+  const activeDriversCount = drivers.filter((driver) => driver.is_active === true).length
   const inactiveDriversCount = drivers.length - activeDriversCount
 
   return (
@@ -300,7 +283,7 @@ const fetchDriverRatings = async (driverId: string) => {
               <Users className="h-5 w-5 text-gray-600" />
               <span>Şoför Yönetimi</span>
             </CardTitle>
-            
+
             {/* Search */}
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -313,43 +296,45 @@ const fetchDriverRatings = async (driverId: string) => {
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDrivers.map((driver) => {
-              const driverInfo = driver.driver_info || {}
-              const vehiclePlate = driverInfo?.vehicle_plate || "Araç yok"
-              const isActive = driverInfo?.is_active ?? true
-              const licenseNumber = driverInfo?.license_number
+              const vehiclePlate = driver.vehicle_plate || "Araç yok"
+              const isActive = driver.is_active ?? true
+              const licenseNumber = driver.license_number
 
               return (
-                <Card key={driver.id} className="shadow-lg border-0 bg-white rounded-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
+                <Card
+                  key={driver.user_id}
+                  className="shadow-lg border-0 bg-white rounded-xl overflow-hidden group hover:scale-105 transition-transform duration-300"
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-<Avatar className="h-12 w-12 ring-2 ring-blue-100">
-  {driver.driver_photos?.[0]?.photo_url ? (
-    <AvatarImage 
-      src={`${driver.driver_photos[0].photo_url}?t=${Date.now()}`}
-      alt={driver.full_name}
-      className="object-cover"
-      onError={(e) => {
-        console.error('Avatar image load error for driver:', driver.id);
-        e.currentTarget.style.display = 'none';
-      }}
-    />
-  ) : (
-    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
-      {driver.full_name?.charAt(0) || "Ş"}
-    </AvatarFallback>
-  )}
-</Avatar>
+                        <Avatar className="h-12 w-12 ring-2 ring-blue-100">
+                          {driver.driver_photos?.[0]?.photo_url ? (
+                            <AvatarImage
+                              src={`${driver.driver_photos[0].photo_url}?t=${Date.now()}`}
+                              alt={driver.full_name}
+                              className="object-cover"
+                              onError={(e) => {
+                                console.error("Avatar image load error for driver:", driver.user_id)
+                                e.currentTarget.style.display = "none"
+                              }}
+                            />
+                          ) : (
+                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
+                              {driver.full_name?.charAt(0) || "Ş"}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
                         <div className="flex-1">
                           <h3 className="font-bold text-gray-900 text-sm">{driver.full_name}</h3>
                           <Badge
                             className={`text-xs mt-1 ${
-                              isActive 
-                                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white" 
+                              isActive
+                                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
                                 : "bg-gradient-to-r from-red-500 to-pink-500 text-white"
                             }`}
                           >
@@ -395,7 +380,7 @@ const fetchDriverRatings = async (driverId: string) => {
                           <p className="text-sm text-gray-700 mt-1 font-medium">{licenseNumber}</p>
                         </div>
                       )}
-                      
+
                       {/* Ratings Summary */}
                       <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between">
@@ -403,16 +388,16 @@ const fetchDriverRatings = async (driverId: string) => {
                             <Star className="h-4 w-4 text-amber-600 fill-amber-600" />
                             <span className="text-sm font-medium text-amber-800">Değerlendirme</span>
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-xs h-6 border-amber-200 text-amber-700 hover:bg-amber-50"
-                            onClick={() => fetchDriverRatings(driver.id)}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-6 border-amber-200 text-amber-700 hover:bg-amber-50 bg-transparent"
+                            onClick={() => fetchDriverRatings(driver.user_id)}
                           >
                             Detay
                           </Button>
                         </div>
-                        <DriverRatingsSummary driverId={driver.id} supabase={supabase} />
+                        <DriverRatingsSummary driverId={driver.user_id} supabase={supabase} />
                       </div>
                     </div>
 
@@ -427,7 +412,7 @@ const fetchDriverRatings = async (driverId: string) => {
                         <span>Düzenle</span>
                       </Button>
                       <Button
-                        onClick={() => handleDelete(driver.id)}
+                        onClick={() => handleDelete(driver.user_id)}
                         size="sm"
                         variant="outline"
                         className="flex items-center space-x-2 border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
@@ -451,10 +436,7 @@ const fetchDriverRatings = async (driverId: string) => {
                 {searchQuery ? "Arama sonucu bulunamadı" : "Şoför bulunamadı"}
               </h3>
               <p className="text-gray-600">
-                {searchQuery 
-                  ? `"${searchQuery}" için arama sonucu bulunamadı.`
-                  : "Henüz kayıtlı şoför bulunmuyor."
-                }
+                {searchQuery ? `"${searchQuery}" için arama sonucu bulunamadı.` : "Henüz kayıtlı şoför bulunmuyor."}
               </p>
             </div>
           )}
@@ -470,7 +452,7 @@ const fetchDriverRatings = async (driverId: string) => {
               <span>Şoför Değerlendirmeleri</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           {loadingRatings ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin"></div>
@@ -495,9 +477,7 @@ const fetchDriverRatings = async (driverId: string) => {
                                 <Star
                                   key={star}
                                   className={`w-4 h-4 ${
-                                    star <= rating.rating
-                                      ? 'text-amber-500 fill-amber-500'
-                                      : 'text-gray-300'
+                                    star <= rating.rating ? "text-amber-500 fill-amber-500" : "text-gray-300"
                                   }`}
                                 />
                               ))}
@@ -508,19 +488,18 @@ const fetchDriverRatings = async (driverId: string) => {
                             <p className="text-sm font-medium text-gray-700">{rating.customer_name}</p>
                           )}
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(rating.created_at).toLocaleDateString('tr-TR')}
+                            {new Date(rating.created_at).toLocaleDateString("tr-TR")}
                           </p>
                         </div>
                       </div>
                       {rating.review_text && (
-                        <p className="text-sm text-gray-600 mt-3 bg-gray-50 p-3 rounded-lg">
-                          {rating.review_text}
-                        </p>
+                        <p className="text-sm text-gray-600 mt-3 bg-gray-50 p-3 rounded-lg">{rating.review_text}</p>
                       )}
                       {rating.task && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-xs text-gray-500">
-                            {new Date(rating.task.pickup_date).toLocaleDateString('tr-TR')} - {rating.task.pickup_location} → {rating.task.dropoff_location}
+                            {new Date(rating.task.pickup_date).toLocaleDateString("tr-TR")} -{" "}
+                            {rating.task.pickup_location} → {rating.task.dropoff_location}
                           </p>
                         </div>
                       )}
@@ -532,7 +511,7 @@ const fetchDriverRatings = async (driverId: string) => {
           )}
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md mx-auto rounded-xl">
           <DialogHeader className="border-b pb-4">
@@ -541,10 +520,12 @@ const fetchDriverRatings = async (driverId: string) => {
               <span>Şoför Bilgilerini Düzenle</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label htmlFor="full_name" className="text-sm font-semibold text-gray-700">Ad Soyad</Label>
+              <Label htmlFor="full_name" className="text-sm font-semibold text-gray-700">
+                Ad Soyad
+              </Label>
               <Input
                 id="full_name"
                 value={formData.full_name}
@@ -553,9 +534,11 @@ const fetchDriverRatings = async (driverId: string) => {
                 className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Telefon</Label>
+              <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
+                Telefon
+              </Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -564,9 +547,11 @@ const fetchDriverRatings = async (driverId: string) => {
                 placeholder="0555 123 45 67"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="vehicle_plate" className="text-sm font-semibold text-gray-700">Araç Plakası</Label>
+              <Label htmlFor="vehicle_plate" className="text-sm font-semibold text-gray-700">
+                Araç Plakası
+              </Label>
               <Input
                 id="vehicle_plate"
                 value={formData.vehicle_plate}
@@ -575,9 +560,11 @@ const fetchDriverRatings = async (driverId: string) => {
                 className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="license_number" className="text-sm font-semibold text-gray-700">Ehliyet Numarası</Label>
+              <Label htmlFor="license_number" className="text-sm font-semibold text-gray-700">
+                Ehliyet Numarası
+              </Label>
               <Input
                 id="license_number"
                 value={formData.license_number}
@@ -586,18 +573,18 @@ const fetchDriverRatings = async (driverId: string) => {
                 className="rounded-lg border-2 border-gray-200 focus:border-blue-400"
               />
             </div>
-            
+
             <div className="flex space-x-2 pt-6 border-t">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 Kaydet
               </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsDialogOpen(false)} 
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
                 className="flex-1 border-2 border-gray-300 hover:bg-gray-50"
               >
                 İptal
