@@ -9,34 +9,28 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 export default function OperationsPage() {
-  const [profile, setProfile] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [drivers, setDrivers] = useState([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     async function loadOperationsData() {
       try {
-        console.log("[v0] Operations page: Starting authentication check");
-        const supabase = createClient();
-
-        // Kullanıcı kontrolü
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
+        console.log("[v1] Operations page: Starting authentication check");
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
-          console.error("[v0] Operations page: No authenticated user:", userError);
+          console.error("[v1] Operations page: Authentication failed:", userError?.message);
+          setError("Kimlik doğrulama başarısız. Lütfen tekrar giriş yapın.");
           router.push("/auth/login");
           return;
         }
 
-        console.log("[v0] Operations page: User authenticated:", user.id);
+        console.log("[v1] Operations page: User authenticated:", user.id);
 
-        // Profil verisi çekme
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
@@ -44,64 +38,145 @@ export default function OperationsPage() {
           .single();
 
         if (profileError || !profileData) {
-          console.error("[v0] Operations page: Error fetching profile:", profileError);
+          console.error("[v1] Operations page: Profile fetch error:", profileError?.message);
+          setError("Profil bilgileri alınamadı.");
           router.push("/auth/login");
           return;
         }
 
-        // Rol kontrolü
         if (!["operations", "admin"].includes(profileData.role)) {
-          console.error("[v0] Operations page: User is not authorized:", profileData.role);
+          console.error("[v1] Operations page: Unauthorized role:", profileData.role);
+          setError("Bu sayfaya erişim yetkiniz yok.");
           router.push("/auth/login");
           return;
         }
 
         setProfile(profileData);
-        console.log("[v0] Operations page: Profile obtained:", profileData.id);
+        console.log("[v1] Operations page: Profile loaded:", profileData.id);
 
-        // Görevler
+        // Tasks verilerini çek
         const { data: tasksData, error: tasksError } = await supabase
-          .from("driver_tasks_view")
+          .from("tasks")
           .select("*")
           .order("pickup_date", { ascending: true });
 
         if (tasksError) {
-          console.error("[v0] Operations page: Error fetching tasks:", tasksError);
+          console.error("[v1] Operations page: Tasks fetch error:", tasksError.message);
           setTasks([]);
         } else {
+          console.log("[v1] Operations page: Tasks loaded:", tasksData?.length || 0);
           setTasks(tasksData || []);
         }
 
-        // Şoförler
+        console.log("[v1] Operations page: Fetching drivers data");
+        
+        // Şoför verilerini doğru şekilde çek
         const { data: driversData, error: driversError } = await supabase
           .from("profiles")
           .select(`
             id,
             full_name,
             phone,
-            drivers!drivers_user_id_fkey (
-              user_id,
-              vehicle_plate,
-              license_number,
-              is_active
-            )
+            email
           `)
           .eq("role", "driver");
 
         if (driversError) {
-          console.error("[v0] Operations page: Error fetching drivers:", driversError);
+          console.error("[v1] Operations page: Drivers profiles fetch error:", driversError.message);
           setDrivers([]);
-        } else {
-          setDrivers(driversData || []);
+          return;
         }
 
-        console.log("[v0] Operations page: Data loaded successfully", {
-          tasksCount: tasksData?.length,
-          driversCount: driversData?.length,
+        // Şoför detay bilgilerini ayrı olarak çek
+        const { data: driverDetailsData, error: driverDetailsError } = await supabase
+          .from("drivers")
+          .select(`
+            user_id,
+            vehicle_plate,
+            vehicle_model,
+            vehicle_color,
+            vehicle_year,
+            license_number,
+            is_active
+          `);
+
+        if (driverDetailsError) {
+          console.error("[v1] Operations page: Driver details fetch error:", driverDetailsError.message);
+        }
+
+        // Şoför fotoğraflarını ayrı olarak çek (eğer driver_photos tablosu varsa)
+        const { data: driverPhotosData, error: driverPhotosError } = await supabase
+          .from("driver_photos")
+          .select(`
+            driver_id,
+            photo_url,
+            is_active
+          `)
+          .eq("is_active", true);
+
+        if (driverPhotosError) {
+          console.error("[v1] Operations page: Driver photos fetch error:", driverPhotosError.message);
+        }
+
+        // Verileri birleştir
+        const processedDrivers = (driversData || []).map(driver => {
+          // İlgili şoför detayını bul
+          const driverDetail = (driverDetailsData || []).find(
+            detail => detail.user_id === driver.id
+          );
+
+          // İlgili şoför fotoğrafını bul
+          const driverPhoto = (driverPhotosData || []).find(
+            photo => photo.driver_id === driver.id
+          );
+
+          return {
+            id: driver.id,
+            full_name: driver.full_name || "Bilinmeyen Şoför",
+            phone: driver.phone || "",
+            email: driver.email || "",
+            driver_info: driverDetail ? {
+              user_id: driverDetail.user_id,
+              vehicle_plate: driverDetail.vehicle_plate || "",
+              vehicle_model: driverDetail.vehicle_model || "",
+              vehicle_color: driverDetail.vehicle_color || "",
+              vehicle_year: driverDetail.vehicle_year || null,
+              license_number: driverDetail.license_number || "",
+              is_active: driverDetail.is_active ?? false
+            } : {
+              user_id: driver.id,
+              vehicle_plate: "",
+              vehicle_model: "",
+              vehicle_color: "",
+              vehicle_year: null,
+              license_number: "",
+              is_active: false
+            },
+            active_photo: driverPhoto ? {
+              photo_url: driverPhoto.photo_url || "",
+              is_active: driverPhoto.is_active
+            } : null
+          };
         });
-      } catch (error) {
-        console.error("[v0] Operations page: Unexpected error:", error);
-        setError(error.message);
+
+        const activeDriversCount = processedDrivers.filter(d => d.driver_info.is_active).length;
+        console.log("[v1] Operations page: Processed drivers:", JSON.stringify(processedDrivers, null, 2));
+        console.log("[v1] Operations page: Active drivers count:", activeDriversCount);
+        setDrivers(processedDrivers);
+        
+        console.log("[v1] Operations page: Data loading completed", {
+          tasksCount: tasksData?.length || 0,
+          driversCount: driversData?.length || 0,
+          activeDriversCount: activeDriversCount
+        });
+
+      } catch (error: any) {
+        console.error("[v1] Operations page: Unexpected error:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        setError(error.message || "Bilinmeyen bir hata oluştu");
         router.push("/auth/login");
       } finally {
         setLoading(false);
@@ -109,14 +184,13 @@ export default function OperationsPage() {
     }
 
     loadOperationsData();
-  }, [router]);
+  }, [router, supabase]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-white to-white">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
-            {/* Resmi ekledik ve mobil uyumlu hale getirdik */}
             <div className="relative w-48 h-48 md:w-64 md:h-64 animate-pulse">
               <Image
                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0zCbCWJQel7wZYoNmMnOJRuiTyNgfEQUwXw&s"

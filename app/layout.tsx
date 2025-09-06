@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
-import NotificationComponent from "@/components/NotificationComponent" // NotificationComponent'i import edin
 
 export const metadata: Metadata = {
   title: "v0 App",
@@ -29,7 +28,6 @@ html {
       </head>
       <body>
         {children}
-        <NotificationComponent /> {/* NotificationComponent'i buraya ekleyin */}
       </body>
     </html>
   )
