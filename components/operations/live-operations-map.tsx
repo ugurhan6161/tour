@@ -748,7 +748,7 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
   }, [initializeMap])
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 px-0 py-0">
       <Card className="shadow-xl border-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
         <CardHeader className="pb-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -758,7 +758,7 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
               </div>
               <div>
                 <CardTitle className="text-xl text-gray-800">Canlı Operasyon Haritası</CardTitle>
-                <p className="text-sm text-gray-600">
+                <p className="text-gray-600 text-xs">
                   Şoförlerin gerçek zamanlı konum takibi
                   {dataState.lastUpdate && (
                     <span className="ml-2 text-xs text-blue-600">
@@ -768,7 +768,7 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 justify-evenly flex-col">
               <Button
                 onClick={handleRefresh}
                 disabled={dataState.loading}
@@ -872,33 +872,39 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
           <div className="relative">
             <div
               ref={mapRef}
-              className="w-full h-80 md:h-[400px] lg:h-[450px] xl:h-[500px]"
-              style={{ minHeight: "350px" }}
+              className="w-full h-[50vh] sm:h-80 md:h-[400px] lg:h-[450px] xl:h-[500px]"
+              style={{ minHeight: "550px" }}
             />
-            <div className="absolute top-4 left-4 flex space-x-2" style={{ zIndex: 1001 }}>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-lg px-3 py-1.5 text-center backdrop-blur-sm">
-                <Database className="h-4 w-4 text-blue-600 mx-auto mb-1" />
-                <p className="text-sm font-bold text-blue-600">{driverStats.driversOnline}</p>
-                <p className="text-xs text-blue-600">Çevrimiçi</p>
+            <div
+              className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-wrap gap-1 sm:gap-2"
+              style={{ zIndex: 1001 }}
+            >
+              <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center backdrop-blur-sm">
+                <Database className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-xs sm:text-sm font-bold text-blue-600">{driverStats.driversOnline}</p>
+                <p className="text-[10px] sm:text-xs text-blue-600">Çevrimiçi</p>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg shadow-lg px-3 py-1.5 text-center backdrop-blur-sm">
-                <CheckCircle className="h-4 w-4 text-green-600 mx-auto mb-1" />
-                <p className="text-sm font-bold text-green-600">{driverStats.activeDrivers}</p>
-                <p className="text-xs text-green-600">Aktif</p>
+              <div className="bg-green-50 border border-green-200 rounded-lg shadow-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center backdrop-blur-sm">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-xs sm:text-sm font-bold text-green-600">{driverStats.activeDrivers}</p>
+                <p className="text-[10px] sm:text-xs text-green-600">Aktif</p>
               </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg shadow-lg px-3 py-1.5 text-center backdrop-blur-sm">
-                <Car className="h-4 w-4 text-orange-600 mx-auto mb-1" />
-                <p className="text-sm font-bold text-orange-600">{driverStats.driversWithTasks}</p>
-                <p className="text-xs text-orange-600">Görevde</p>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg shadow-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center backdrop-blur-sm">
+                <Car className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-xs sm:text-sm font-bold text-orange-600">{driverStats.driversWithTasks}</p>
+                <p className="text-[10px] sm:text-xs text-orange-600">Görevde</p>
               </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg shadow-lg px-3 py-1.5 text-center backdrop-blur-sm">
-                <MapPin className="h-4 w-4 text-purple-600 mx-auto mb-1" />
-                <p className="text-sm font-bold text-purple-600">{filteredLocations.length}</p>
-                <p className="text-xs text-purple-600">Görünür</p>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg shadow-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center backdrop-blur-sm">
+                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-xs sm:text-sm font-bold text-purple-600">{filteredLocations.length}</p>
+                <p className="text-[10px] sm:text-xs text-purple-600">Görünür</p>
               </div>
             </div>
             {(!mapState.loaded || mapState.initializing) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 z-10">
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100"
+                style={{ zIndex: 1010 }}
+              >
                 <div className="text-center p-8">
                   <div className="relative mb-6">
                     <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600 mx-auto"></div>
@@ -915,18 +921,21 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
               </div>
             )}
             {dataState.loading && mapState.loaded && (
-              <div className="absolute top-4 left-[calc(4rem+4*6rem)] z-20">
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border">
+              <div
+                className="absolute top-2 left-1/2 transform -translate-x-1/2 sm:top-4 sm:left-[calc(4rem+4*6rem)] sm:transform-none"
+                style={{ zIndex: 1020 }}
+              >
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 shadow-lg border">
                   <div className="flex items-center space-x-2">
-                    <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                    <span className="text-sm font-medium text-gray-700">Konumlar güncelleniyor...</span>
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 animate-spin" />
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Güncelleniyor...</span>
                   </div>
                 </div>
               </div>
             )}
-            <div className="absolute top-4 right-4 z-20">
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4" style={{ zIndex: 1020 }}>
               <div
-                className={`px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm ${
+                className={`px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm ${
                   settings.autoRefresh && mapState.loaded && !dataState.error
                     ? "bg-green-100/90 text-green-800 border border-green-200"
                     : dataState.error
@@ -937,37 +946,37 @@ export default function LiveOperationsMap({ profile, drivers, tasks }: LiveOpera
                 <div className="flex items-center space-x-1">
                   {settings.autoRefresh && mapState.loaded && !dataState.error ? (
                     <>
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <Wifi className="w-3 h-3" />
-                      <span>Canlı</span>
+                      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <Wifi className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">Canlı</span>
                     </>
                   ) : dataState.error ? (
                     <>
-                      <XCircle className="w-3 h-3" />
-                      <span>Hata</span>
+                      <XCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">Hata</span>
                     </>
                   ) : (
                     <>
-                      <WifiOff className="w-3 h-3" />
-                      <span>Kapalı</span>
+                      <WifiOff className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="hidden sm:inline">Kapalı</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
             {mapState.loaded && (
-              <div className="absolute bottom-4 left-4 z-20">
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg border">
-                  <div className="flex items-center space-x-4 text-sm">
+              <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4" style={{ zIndex: 1020 }}>
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-2 py-1.5 sm:px-4 sm:py-2 shadow-lg border">
+                  <div className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm">
                     <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3 text-gray-500" />
+                      <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500" />
                       <span className="text-gray-600">
                         {new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     {dataState.locations.length > 0 && (
                       <>
-                        <div className="w-px h-4 bg-gray-300"></div>
+                        <div className="w-px h-3 sm:h-4 bg-gray-300"></div>
                         <div className="flex items-center space-x-1">
                           <Database className="w-3 h-3 text-gray-500" />
                           <span className="text-gray-600">{dataState.locations.length} kayıt</span>
