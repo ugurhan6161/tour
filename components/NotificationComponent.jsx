@@ -12,22 +12,44 @@ const NotificationComponent = () => {
     // Sadece tarayıcı ortamında çalıştır
     if (typeof window === 'undefined') return;
 
-    // Firebase'i dinamik olarak import et
+    // Kullanıcı oturum durumunu izle
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    // İlk oturum durumunu al
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+    };
+    
+    getSession();
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  useEffect(() => {
+    // Sadece tarayıcı ortamında ve kullanıcı oturum açtığında çalıştır
+    if (typeof window === 'undefined' || !user) return;
+
     const initializeNotifications = async () => {
       try {
+        // Firebase'i dinamik olarak import et
         const { getFCMToken, onMessageListener } = await import('@/lib/firebase');
         
+        // Token al
         const token = await getFCMToken();
         if (token) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            await supabase
-              .from('profiles')
-              .update({ fcm_token: token })
-              .eq('id', user.id);
-          }
+          // Token'ı Supabase'e kaydet
+          await supabase
+            .from('profiles')
+            .update({ fcm_token: token })
+            .eq('id', user.id);
         }
 
+        // Bildirimleri dinle
         onMessageListener().then(payload => {
           console.log('Bildirim alındı:', payload);
           if (Notification.permission === 'granted') {
@@ -36,6 +58,8 @@ const NotificationComponent = () => {
               icon: '/logo.png'
             });
           }
+        }).catch(error => {
+          console.error('Bildirim dinleme hatası:', error);
         });
       } catch (error) {
         console.error('Bildirim başlatılamadı:', error);
@@ -43,7 +67,7 @@ const NotificationComponent = () => {
     };
 
     initializeNotifications();
-  }, []);
+  }, [user]);
 
   return null;
 };
