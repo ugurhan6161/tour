@@ -34,6 +34,7 @@ export default function MapPage({
   const [newLocationModal, setNewLocationModal] = useState(false);
   const [locationForm, setLocationForm] = useState({ name: "", notes: "", latitude: 0, longitude: 0 });
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [initializingMap, setInitializingMap] = useState(false);
   const isAddLocationModeRef = useRef(isAddLocationMode);
   const markersRef = useRef<any[]>([]);
 
@@ -52,85 +53,180 @@ export default function MapPage({
       setNewLocationModal(true);
       setIsAddLocationMode(false);
     }
-  }, []);
+  }, []); // Remove dependencies to prevent useCallback recreation
 
   const initializeMap = useCallback(async () => {
-    if (typeof window !== "undefined" && !mapInstanceRef.current && mapRef.current) {
-      try {
-        // Önce mevcut harita örneğini temizle
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.remove();
-          mapInstanceRef.current = null;
-        }
-
-        const L = (await import("leaflet")).default;
-        
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        });
-
-        // NOT: Container'ın innerHTML'ini temizlemeyi ve _leaflet_id atamasını kaldırıyoruz.
-        // Leaflet, kendi remove metodu ile temizliği yapar.
-
-        const map = L.map(mapRef.current).setView([41.0, 39.72], 12);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        mapInstanceRef.current = map;
-        setMapLoaded(true);
-
-        map.on('click', handleMapClick);
-        
-        if (locations.length > 0) {
-          updateMapMarkers(map, locations, L);
-        }
-      } catch (error) {
-        console.error("Map initialization error:", error);
-        setError("Harita yüklenirken hata oluştu");
-      }
+    // Prevent multiple initializations with stricter checks
+    if (typeof window === "undefined" || !mapRef.current || mapInstanceRef.current || initializingMap) {
+      return; // Exit early if conditions aren't met
     }
-  }, [handleMapClick, locations, setError]);
+
+    setInitializingMap(true);
+
+    try {
+      const container = mapRef.current;
+      
+      // Force unique container ID for driver map
+      if (!container.id) {
+        container.id = `driver-map-page-${Date.now()}`;
+      }
+      
+      // Check for existing Leaflet data more thoroughly
+      if ((container as any)._leaflet_id || (container as any)._leaflet) {
+        console.log('MapPage: Container already initialized with Leaflet ID:', (container as any)._leaflet_id);
+        setInitializingMap(false);
+        return;
+      }
+
+      // Clear any existing content carefully to prevent React conflicts
+      if (container.innerHTML && container.innerHTML.trim() !== '') {
+        console.log('MapPage: Container has content, checking if safe to clear');
+        // Only clear if container doesn't have React-managed content
+        if (!container.querySelector('[data-reactroot]') && !container.querySelector('[data-react-]')) {
+          console.log('MapPage: Clearing non-React container content');
+          container.innerHTML = '';
+        } else {
+          console.log('MapPage: Container has React content, skipping clear');
+        }
+      }
+      
+      const L = (await import("leaflet")).default;
+      
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      });
+
+      // Create map with unique container reference
+      const map = L.map(container, {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([41.0, 39.72], 12);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      mapInstanceRef.current = map;
+      setMapLoaded(true);
+
+      map.on('click', handleMapClick);
+      
+      console.log('MapPage: Map initialized successfully with container ID:', container.id);
+    } catch (error) {
+      console.error("MapPage initialization error:", error);
+      setError("Harita yüklenirken hata oluştu");
+      // Reset mapInstanceRef on error
+      mapInstanceRef.current = null;
+      setMapLoaded(false);
+    } finally {
+      setInitializingMap(false);
+    }
+  }, []); // Remove all dependencies to prevent re-creation
 
   const updateMapMarkers = useCallback((map: any, locations: any[], L: any) => {
-    // Önceki tüm marker'ları temizle
-    markersRef.current.forEach(marker => {
-      map.removeLayer(marker);
-    });
-    markersRef.current = [];
+    // Safety check: ensure map is valid and not destroyed
+    if (!map || !map.getContainer || !map.getContainer()) {
+      console.warn('Map instance is invalid or destroyed, skipping marker update');
+      return;
+    }
 
-    // Yeni marker'ları ekle
-    locations.forEach(location => {
-      const marker = L.marker([location.latitude, location.longitude])
-        .addTo(map)
-        .bindPopup(`<strong>${location.name}</strong><br/>${location.notes || 'Not yok'}`);
-      
-      markersRef.current.push(marker);
-    });
+    try {
+      // Önceki tüm marker'ları temizle
+      markersRef.current.forEach(marker => {
+        try {
+          if (marker && map.hasLayer && map.hasLayer(marker)) {
+            map.removeLayer(marker);
+          }
+        } catch (error) {
+          console.warn('Error removing marker:', error);
+        }
+      });
+      markersRef.current = [];
+
+      // Yeni marker'ları ekle
+      locations.forEach(location => {
+        const lat = parseFloat(location.latitude);
+        const lng = parseFloat(location.longitude);
+        
+        // Only create marker if coordinates are valid numbers and map is valid
+        if (!isNaN(lat) && !isNaN(lng) && map && map.getContainer && map.getContainer()) {
+          try {
+            const marker = L.marker([lat, lng])
+              .addTo(map)
+              .bindPopup(`<strong>${location.name}</strong><br/>${location.notes || 'Not yok'}`);
+            
+            markersRef.current.push(marker);
+          } catch (error) {
+            console.warn('Error creating marker:', error);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error updating map markers:', error);
+    }
   }, []);
 
   const loadLocations = useCallback(async () => {
     try {
+      if (!profile?.id) {
+        console.log('MapPage: No profile available, skipping location load');
+        setLocations([]);
+        return;
+      }
+      
       const { data, error } = await supabase
-        .from('driver_locations')
+        .from('driverlocations')
         .select('*')
-        .eq('created_by', profile?.id)
+        .eq('created_by', profile.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('MapPage: Supabase error loading locations:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        // Handle empty table gracefully
+        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.log('MapPage: Driver locations table appears to be empty or not exist, setting empty locations');
+          setLocations([]);
+          return;
+        }
+        
+        throw error;
+      }
+      
       setLocations(data || []);
+      console.log(`MapPage: Loaded ${(data || []).length} saved locations`);
       
       if (mapInstanceRef.current && data && data.length > 0) {
-        const L = (await import("leaflet")).default;
-        updateMapMarkers(mapInstanceRef.current, data, L);
+        // Safety check before updating markers
+        if (mapInstanceRef.current.getContainer && mapInstanceRef.current.getContainer()) {
+          try {
+            const L = (await import("leaflet")).default;
+            updateMapMarkers(mapInstanceRef.current, data, L);
+          } catch (error) {
+            console.warn('MapPage: Error updating markers after loading locations:', error);
+          }
+        }
       }
     } catch (error) {
-      console.error("Error loading locations:", error);
-      setError("Konumlar yüklenirken hata oluştu");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("MapPage: Error loading locations:", errorMessage);
+      
+      // Set empty locations instead of error state to prevent app crash
+      setLocations([]);
+      
+      // Only set error if it's a serious issue, not empty data
+      if (!errorMessage.includes('empty') && !errorMessage.includes('no rows')) {
+        setError("Konumlar yüklenirken hata oluştu");
+      }
     }
   }, [profile, setLocations, setError, updateMapMarkers]);
 
@@ -143,7 +239,7 @@ export default function MapPage({
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('driver_locations')
+        .from('driverlocations')
         .insert({
           name: locationForm.name,
           notes: locationForm.notes,
@@ -160,13 +256,22 @@ export default function MapPage({
       setLocationForm({ name: "", notes: "", latitude: 0, longitude: 0 });
       setNewLocationModal(false);
 
-      if (mapInstanceRef.current) {
+      if (mapInstanceRef.current && mapInstanceRef.current.getContainer && mapInstanceRef.current.getContainer()) {
         const L = (await import("leaflet")).default;
-        const marker = L.marker([data.latitude, data.longitude])
-          .addTo(mapInstanceRef.current)
-          .bindPopup(`<strong>${data.name}</strong><br/>${data.notes || 'Not yok'}`);
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
         
-        markersRef.current.push(marker);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          try {
+            const marker = L.marker([lat, lng])
+              .addTo(mapInstanceRef.current)
+              .bindPopup(`<strong>${data.name}</strong><br/>${data.notes || 'Not yok'}`);
+            
+            markersRef.current.push(marker);
+          } catch (error) {
+            console.warn('Error adding marker after save:', error);
+          }
+        }
       }
     } catch (error) {
       console.error("Error saving location:", error);
@@ -179,7 +284,7 @@ export default function MapPage({
   const deleteLocation = useCallback(async (locationId: string) => {
     try {
       const { error } = await supabase
-        .from('driver_locations')
+        .from('driverlocations')
         .delete()
         .eq('id', locationId);
 
@@ -206,26 +311,93 @@ export default function MapPage({
   }, [setLocations, setError]);
 
   useEffect(() => {
-    initializeMap();
+    // Initialize map once on component mount, with a delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      if (!mapInstanceRef.current && mapRef.current && !initializingMap) {
+        initializeMap();
+      }
+    }, 100); // Small delay to ensure DOM is ready
     
     return () => {
+      clearTimeout(timer);
+      // Cleanup on unmount - prevent React DOM conflicts
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.off('click', handleMapClick);
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+        try {
+          // Clear markers first
+          markersRef.current.forEach(marker => {
+            try {
+              if (mapInstanceRef.current && mapInstanceRef.current.hasLayer && mapInstanceRef.current.hasLayer(marker)) {
+                mapInstanceRef.current.removeLayer(marker);
+              }
+            } catch (error) {
+              console.warn('MapPage: Error removing marker during cleanup:', error);
+            }
+          });
+          markersRef.current = [];
+          
+          // Remove event listeners first to prevent further interactions
+          if (mapInstanceRef.current.off) {
+            mapInstanceRef.current.off('click', handleMapClick);
+          }
+          
+          // Remove the map instance safely
+          if (mapInstanceRef.current.remove) {
+            mapInstanceRef.current.remove();
+          }
+          
+        } catch (error) {
+          console.warn('MapPage: Error during map cleanup:', error);
+        } finally {
+          // Clear references without touching DOM
+          mapInstanceRef.current = null;
+          setMapLoaded(false);
+          setInitializingMap(false);
+          
+          // Clear container properties after React finishes its cleanup
+          setTimeout(() => {
+            if (mapRef.current) {
+              const container = mapRef.current;
+              try {
+                // Clear Leaflet-specific properties
+                delete (container as any)._leaflet_id;
+                delete (container as any)._leaflet;
+                // Don't clear innerHTML - let React handle its own DOM
+              } catch (error) {
+                console.warn('MapPage: Could not clear container properties:', error);
+              }
+            }
+          }, 50);
+        }
       }
     };
-  }, []); // Sadece mount ve unmount'ta çalışsın
+  }, []); // Empty dependency array - only run on mount/unmount
 
   useEffect(() => {
     if (mapInstanceRef.current && locations.length > 0 && mapLoaded) {
+      // Additional safety check
+      if (!mapInstanceRef.current.getContainer || !mapInstanceRef.current.getContainer()) {
+        console.warn('Map container is invalid, skipping marker update');
+        return;
+      }
+      
       const updateMarkers = async () => {
-        const L = (await import("leaflet")).default;
-        updateMapMarkers(mapInstanceRef.current, locations, L);
+        try {
+          const L = (await import("leaflet")).default;
+          updateMapMarkers(mapInstanceRef.current, locations, L);
+        } catch (error) {
+          console.error('Error updating markers in useEffect:', error);
+        }
       };
       updateMarkers();
     }
   }, [locations, mapLoaded, updateMapMarkers]);
+
+  // Load initial locations after map is ready
+  useEffect(() => {
+    if (mapLoaded && mapInstanceRef.current) {
+      loadLocations();
+    }
+  }, [mapLoaded, loadLocations]);
 
   return (
     <div className="space-y-4">
@@ -257,13 +429,15 @@ export default function MapPage({
                 </p>
               </div>
             )}
-            <div 
-              ref={mapRef}
-              className="w-full rounded-lg border-2 border-gray-200 px-[-0px] px-[-10px] px-[-30px] px-[-40px] px-[-50px] px-[-60px] px-0 space-y-0 h-96"
-              style={{ minHeight: '320px' }}
-            >
+            <div className="relative w-full h-96" style={{ minHeight: '320px' }}>
+              <div 
+                ref={mapRef}
+                className="absolute inset-0 rounded-lg border-2 border-gray-200 driver-map-container"
+                id="driver-map-page"
+                suppressHydrationWarning={true}
+              />
               {!mapLoaded && (
-                <div className="w-full h-full bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center rounded-lg">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center rounded-lg">
                   <div className="text-center space-y-2">
                     <Loader2 className="h-8 w-8 text-gray-400 mx-auto animate-spin" />
                     <p className="text-gray-600">Harita yükleniyor...</p>
@@ -305,7 +479,7 @@ export default function MapPage({
                         </h4>
                         <p className="text-sm text-gray-600 mt-1">{location.notes || "Not yok"}</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                          📍 {parseFloat(location.latitude).toFixed(4)}, {parseFloat(location.longitude).toFixed(4)}
                         </p>
                         <p className="text-xs text-gray-400">
                           📅 {new Date(location.created_at).toLocaleDateString('tr-TR')}

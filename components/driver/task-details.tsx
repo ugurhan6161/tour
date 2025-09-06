@@ -23,8 +23,17 @@ import {
   PlayCircle,
   XCircle,
   MessageSquare,
+  Download,
+  Upload,
+  Eye,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  File,
+  Image,
 } from "lucide-react";
 import FileUpload from "./file-upload";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TaskDetailsProps {
   task: any;
@@ -38,7 +47,68 @@ export default function TaskDetails({ task, onBack, onTaskUpdate, profile }: Tas
   const [issueReport, setIssueReport] = useState("");
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
+  const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(false);
+  const [isPassportsExpanded, setIsPassportsExpanded] = useState(false);
+  const [taskFiles, setTaskFiles] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [previewImages, setPreviewImages] = useState<{[key: string]: string}>({});
   const supabase = createClient();
+
+  // Fetch task files on component mount
+  useEffect(() => {
+    fetchTaskFiles();
+  }, [task.id]);
+
+  const fetchTaskFiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('task_files')
+        .select('*')
+        .eq('task_id', task.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setTaskFiles(data || []);
+      
+      // Generate preview URLs for passport images
+      await generatePreviewUrls(data || []);
+    } catch (error) {
+      console.error('Error fetching task files:', error);
+    }
+  };
+
+  const generatePreviewUrls = async (fileList: any[]) => {
+    const previews: {[key: string]: string} = {};
+    
+    for (const file of fileList) {
+      if (file.mime_type?.startsWith('image/') && file.file_type === 'passport') {
+        try {
+          const { data, error } = await supabase.storage
+            .from('task-files')
+            .createSignedUrl(file.file_path, 3600);
+          
+          if (data && !error) {
+            previews[file.id] = data.signedUrl;
+          }
+        } catch (error) {
+          console.error('Error generating preview URL:', error);
+        }
+      }
+    }
+    
+    setPreviewImages(previews);
+  };
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchTaskFiles(),
+      onTaskUpdate()
+    ]);
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   // Geri sayım sayacı
   useEffect(() => {
@@ -125,6 +195,44 @@ export default function TaskDetails({ task, onBack, onTaskUpdate, profile }: Tas
     window.open(whatsappUrl, "_blank");
   };
 
+  const downloadTaskDocument = async (file: any) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-files')
+        .download(file.file_path);
+      
+      if (error) throw error;
+      
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const viewTaskDocument = async (file: any) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-files')
+        .createSignedUrl(file.file_path, 3600); // 1 hour expiry
+      
+      if (error) throw error;
+      
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error viewing file:', error);
+    }
+  };
+
+  // Separate files by type
+  const tripDocuments = taskFiles.filter(file => file.file_type === 'trip_document');
+  const passportImages = taskFiles.filter(file => file.file_type === 'passport');
+  const otherFiles = taskFiles.filter(file => file.file_type === 'other');
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("tr-TR", {
       weekday: "long",
@@ -209,10 +317,22 @@ export default function TaskDetails({ task, onBack, onTaskUpdate, profile }: Tas
                 <span className="font-medium">Tur Görev Yönetimi</span>
               </div>
             </div>
-            <Badge className={`${statusInfo.className} px-4 py-2 rounded-full font-semibold text-sm flex items-center space-x-2`}>
-              {statusInfo.icon}
-              <span>{statusInfo.text}</span>
-            </Badge>
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                disabled={isRefreshing}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Yenile</span>
+              </Button>
+              <Badge className={`${statusInfo.className} px-4 py-2 rounded-full font-semibold text-sm flex items-center space-x-2`}>
+                {statusInfo.icon}
+                <span>{statusInfo.text}</span>
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
@@ -367,14 +487,207 @@ export default function TaskDetails({ task, onBack, onTaskUpdate, profile }: Tas
           </Card>
         )}
 
-        {/* Compact File Upload */}
+        {/* Enhanced File Management Section */}
         <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center space-x-2 mb-3">
-              <Camera className="h-5 w-5 text-indigo-600" />
-              <h3 className="text-base sm:text-lg font-bold text-slate-800">Görev Belgeleri</h3>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <FileText className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-base sm:text-lg font-bold text-slate-800">Görev Belgeleri</h3>
+              </div>
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                disabled={isRefreshing}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>Yenile</span>
+              </Button>
             </div>
-            <FileUpload taskId={task.id} profileId={profile.id} />
+
+            {/* Trip Documents Section */}
+            <Collapsible open={isDocumentsExpanded} onOpenChange={setIsDocumentsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between p-3 h-auto bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-xl border border-blue-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-500 rounded-lg">
+                      <FileText className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-blue-800">Sefer Belgesi</p>
+                      <p className="text-sm text-blue-600">
+                        {tripDocuments.length > 0 ? `${tripDocuments.length} belge mevcut` : 'Henüz belge yüklenmemiş'}
+                      </p>
+                    </div>
+                  </div>
+                  {isDocumentsExpanded ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                {tripDocuments.length > 0 ? (
+                  <div className="space-y-2">
+                    {tripDocuments.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                        <div className="flex items-center space-x-3">
+                          <File className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="font-medium text-gray-900">{file.file_name}</p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(file.created_at).toLocaleDateString('tr-TR')} • {(file.file_size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={() => viewTaskDocument(file)}
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center space-x-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Görüntüle</span>
+                          </Button>
+                          <Button
+                            onClick={() => downloadTaskDocument(file)}
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center space-x-1"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>İndir</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-500">
+                    <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <p>Henüz sefer belgesi yüklenmemiş</p>
+                    <p className="text-sm">Operasyon ekibi tarafından yüklenecek</p>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Passport Images Section */}
+            <Collapsible open={isPassportsExpanded} onOpenChange={setIsPassportsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between p-3 h-auto bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 rounded-xl border border-green-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-500 rounded-lg">
+                      <Camera className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-green-800">Pasaport Resimleri</p>
+                      <p className="text-sm text-green-600">
+                        {passportImages.length > 0 ? `${passportImages.length} resim yüklendi` : 'Resim yüklemeyi bekliyor'}
+                      </p>
+                    </div>
+                  </div>
+                  {isPassportsExpanded ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                <div className="space-y-4">
+                  {/* Upload Area */}
+                  <div className="p-4 border-2 border-dashed border-green-300 rounded-xl bg-green-50">
+                    <FileUpload taskId={task.id} profileId={profile.id} fileType="passport" />
+                  </div>
+                  
+                  {/* Passport Images Grid */}
+                  {passportImages.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {passportImages.map((file) => (
+                        <div key={file.id} className="relative group">
+                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-green-200">
+                            {file.mime_type?.startsWith('image/') ? (
+                              <img
+                                src={previewImages[file.id] || `/api/file-preview/${file.id}`}
+                                alt={file.file_name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div className="w-full h-full flex items-center justify-center" style={{display: 'none'}}>
+                              <Image className="h-8 w-8 text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <div className="flex space-x-2">
+                              <Button
+                                onClick={() => viewTaskDocument(file)}
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-black hover:bg-gray-100"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => downloadTaskDocument(file)}
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-black hover:bg-gray-100"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="mt-1 text-center">
+                            <p className="text-xs text-gray-600 truncate">{file.file_name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Other Files */}
+            {otherFiles.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-700 flex items-center space-x-2">
+                  <File className="h-4 w-4" />
+                  <span>Diğer Dosyalar</span>
+                </h4>
+                {otherFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <File className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">{file.file_name}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        onClick={() => viewTaskDocument(file)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        onClick={() => downloadTaskDocument(file)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
