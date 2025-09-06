@@ -1,0 +1,58 @@
+/* Map container styles to prevent conflicts between different map components */
+
+/* Driver Map Page Container */
+.driver-map-container {
+  position: relative;
+  z-index: 1;
+}
+
+.driver-map-container .leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Live Operations Map Container */
+.live-operations-map-container {
+  position: relative;
+  z-index: 1;
+}
+
+.live-operations-map-container .leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Ensure map containers don't interfere with each other */
+#driver-map-page {
+  isolation: isolate;
+}
+
+#live-operations-map {
+  isolation: isolate;
+}
+
+/* Custom marker styles for operations map */
+.custom-driver-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-driver-marker .leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Prevent CSS conflicts between maps */
+.driver-map-container .leaflet-control-container,
+.live-operations-map-container .leaflet-control-container {
+  pointer-events: auto;
+}
+
+/* Ensure proper layering */
+.leaflet-map-pane {
+  position: relative;
+}
+
+.leaflet-tile-pane {
+  position: relative;
+}
