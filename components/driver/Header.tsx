@@ -45,8 +45,12 @@ export default function Header({
         return "Harita ve Konumlar";
       case "routes":
         return "Tur Rotaları";
+      case "ratings":
+        return "Müşteri Değerlendirmeleri";
+              case "translation":
+        return "Hızlı Çeviri";
       default:
-        return "Tur Şoför Paneli";
+        return "Şoför Paneli";
     }
   };
 

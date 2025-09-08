@@ -8,19 +8,107 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Copy, CheckCircle2, ExternalLink, Phone } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MessageCircle, Copy, CheckCircle2, ExternalLink, Phone, Globe } from "lucide-react";
 
 interface CommunicationModalProps {
   task: any;
   onClose: () => void;
 }
 
+type Language = 'tr' | 'en' | 'ar';
+
+const languages = {
+  tr: { name: 'Türkçe', flag: '🇹🇷' },
+  en: { name: 'English', flag: '🇬🇧' },
+  ar: { name: 'العربية', flag: '🇸🇦' }
+};
+
+const translations = {
+  tr: {
+    greeting: "Merhaba",
+    customer: "Müşteri",
+    tourDetails: "Tur rezervasyonunuzla ilgili detaylar:",
+    date: "Tarih:",
+    time: "Saat:",
+    pickup: "Kalkış:",
+    dropoff: "Varış:",
+    unknown: "Belirsiz",
+    trackingLink: "Canlı takip bağlantınız:",
+    farewell: "İyi yolculuklar dileriz!"
+  },
+  en: {
+    greeting: "Hello",
+    customer: "Customer",
+    tourDetails: "Details about your tour reservation:",
+    date: "Date:",
+    time: "Time:",
+    pickup: "Pickup:",
+    dropoff: "Drop-off:",
+    unknown: "Unknown",
+    trackingLink: "Your live tracking link:",
+    farewell: "Have a great trip!"
+  },
+  ar: {
+    greeting: "مرحباً",
+    customer: "العميل",
+    tourDetails: "تفاصيل حجز رحلتكم:",
+    date: "التاريخ:",
+    time: "الوقت:",
+    pickup: "نقطة الانطلاق:",
+    dropoff: "الوجهة:",
+    unknown: "غير محدد",
+    trackingLink: "رابط التتبع المباشر:",
+    farewell: "رحلة سعيدة!"
+  }
+};
+
 export default function CommunicationModal({ task, onClose }: CommunicationModalProps) {
   const [whatsappMessage, setWhatsappMessage] = useState("");
   const [trackingLink, setTrackingLink] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>('tr');
   const supabase = createClient();
+
+  const generateMessage = (lang: Language, trackingUrl?: string) => {
+    const t = translations[lang];
+    const customerName = task.customer_name || t.customer;
+    const pickupDate = new Date(task.pickup_date).toLocaleDateString(
+      lang === 'ar' ? 'ar-SA' : lang === 'en' ? 'en-US' : 'tr-TR'
+    );
+    const pickupTime = task.pickup_time 
+      ? new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString(
+          lang === 'ar' ? 'ar-SA' : lang === 'en' ? 'en-US' : 'tr-TR', 
+          { hour: '2-digit', minute: '2-digit' }
+        )
+      : t.unknown;
+    const pickupLocation = task.pickup_location || t.unknown;
+    const dropoffLocation = task.dropoff_location || t.unknown;
+
+    let message = `${t.greeting} ${customerName},\n\n${t.tourDetails}\n`;
+    
+    if (lang === 'ar') {
+      // Arabic text direction - organize differently
+      message += `📅 ${t.date} ${pickupDate}\n`;
+      message += `🕐 ${t.time} ${pickupTime}\n`;
+      message += `📍 ${t.pickup} ${pickupLocation}\n`;
+      message += `📍 ${t.dropoff} ${dropoffLocation}\n`;
+    } else {
+      message += `📅 ${t.date} ${pickupDate}\n`;
+      message += `🕐 ${t.time} ${pickupTime}\n`;
+      message += `📍 ${t.pickup} ${pickupLocation}\n`;
+      message += `📍 ${t.dropoff} ${dropoffLocation}\n`;
+    }
+
+    if (trackingUrl) {
+      message += `\n🔗 ${t.trackingLink} ${trackingUrl}\n`;
+    }
+
+    message += `\n${t.farewell}`;
+
+    return message;
+  };
 
   useEffect(() => {
     // Fetch tracking link from database
@@ -40,11 +128,11 @@ export default function CommunicationModal({ task, onClose }: CommunicationModal
           setTrackingLink(link);
           
           // Set default WhatsApp message with tracking link
-          const defaultMessage = `Merhaba ${task.customer_name || "Müşteri"},\n\nTur rezervasyonunuzla ilgili detaylar:\n📅 Tarih: ${new Date(task.pickup_date).toLocaleDateString('tr-TR')}\n🕐 Saat: ${task.pickup_time ? new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Belirsiz'}\n📍 Kalkış: ${task.pickup_location || "Belirsiz"}\n📍 Varış: ${task.dropoff_location || "Belirsiz"}\n\n🔗 Canlı takip bağlantınız: ${link}\n\nİyi yolculuklar dileriz!`;
+          const defaultMessage = generateMessage(selectedLanguage, link);
           setWhatsappMessage(defaultMessage);
         } else {
           // Default message without tracking link
-          const defaultMessage = `Merhaba ${task.customer_name || "Müşteri"},\n\nTur rezervasyonunuzla ilgili detaylar:\n📅 Tarih: ${new Date(task.pickup_date).toLocaleDateString('tr-TR')}\n🕐 Saat: ${task.pickup_time ? new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Belirsiz'}\n📍 Kalkış: ${task.pickup_location || "Belirsiz"}\n📍 Varış: ${task.dropoff_location || "Belirsiz"}\n\nİyi yolculuklar dileriz!`;
+          const defaultMessage = generateMessage(selectedLanguage);
           setWhatsappMessage(defaultMessage);
         }
       } catch (error: any) {
@@ -54,13 +142,20 @@ export default function CommunicationModal({ task, onClose }: CommunicationModal
         });
         setError("Takip bağlantısı alınamadı.");
         // Set default message without tracking link
-        const defaultMessage = `Merhaba ${task.customer_name || "Müşteri"},\n\nTur rezervasyonunuzla ilgili detaylar:\n📅 Tarih: ${new Date(task.pickup_date).toLocaleDateString('tr-TR')}\n🕐 Saat: ${task.pickup_time ? new Date(`2000-01-01T${task.pickup_time}`).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Belirsiz'}\n📍 Kalkış: ${task.pickup_location || "Belirsiz"}\n📍 Varış: ${task.dropoff_location || "Belirsiz"}\n\nİyi yolculuklar dileriz!`;
+        const defaultMessage = generateMessage(selectedLanguage);
         setWhatsappMessage(defaultMessage);
       }
     };
     
     fetchTrackingLink();
-  }, [task, supabase]);
+  }, [task, supabase, selectedLanguage]);
+
+  const handleLanguageChange = (language: Language) => {
+    setSelectedLanguage(language);
+    // Regenerate message in new language
+    const newMessage = generateMessage(language, trackingLink || undefined);
+    setWhatsappMessage(newMessage);
+  };
 
   const handleWhatsAppSend = () => {
     if (!task.customer_phone || !whatsappMessage) {
@@ -226,10 +321,32 @@ export default function CommunicationModal({ task, onClose }: CommunicationModal
 
           {/* WhatsApp İletişim */}
           <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
-            <h4 className="font-semibold text-emerald-800 mb-4 flex items-center space-x-2">
-              <MessageCircle className="h-4 w-4" />
-              <span>WhatsApp Mesajı</span>
-            </h4>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
+                <MessageCircle className="h-4 w-4" />
+                <span>WhatsApp Mesajı</span>
+              </h4>
+              
+              {/* Language Selection */}
+              <div className="flex items-center space-x-2">
+                <Globe className="h-4 w-4 text-emerald-600" />
+                <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
+                  <SelectTrigger className="w-40 h-8 text-sm border-emerald-200">
+                    <SelectValue placeholder="Dil seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(languages).map(([code, lang]) => (
+                      <SelectItem key={code} value={code}>
+                        <div className="flex items-center space-x-2">
+                          <span>{lang.flag}</span>
+                          <span>{lang.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             
             {task.customer_phone ? (
               <div className="space-y-4">
@@ -240,8 +357,9 @@ export default function CommunicationModal({ task, onClose }: CommunicationModal
                     value={whatsappMessage}
                     onChange={(e) => setWhatsappMessage(e.target.value)}
                     rows={8}
-                    className="mt-2 font-mono text-sm resize-none border-2 border-emerald-200 focus:border-emerald-400"
+                    className={`mt-2 font-mono text-sm resize-none border-2 border-emerald-200 focus:border-emerald-400 ${selectedLanguage === 'ar' ? 'text-right' : 'text-left'}`}
                     placeholder="WhatsApp mesajınızı buraya yazın..."
+                    dir={selectedLanguage === 'ar' ? 'rtl' : 'ltr'}
                   />
                 </div>
                 
@@ -252,12 +370,12 @@ export default function CommunicationModal({ task, onClose }: CommunicationModal
                     disabled={!whatsappMessage.trim()}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
-                    WhatsApp'ta Gönder
+                    WhatsApp'ta Gönder ({languages[selectedLanguage].flag} {languages[selectedLanguage].name})
                   </Button>
                 </div>
                 
                 <p className="text-xs text-emerald-600">
-                  Bu butona tıkladığınızda WhatsApp uygulaması açılacak ve mesaj hazır halde gelecektir.
+                  Bu butona tıkladığınızda WhatsApp uygulaması açılacak ve seçili dildeki mesaj hazır halde gelecektir.
                 </p>
               </div>
             ) : (

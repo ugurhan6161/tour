@@ -306,17 +306,17 @@ export default function DriverDashboard({ profile, driver, initialTasks }: Drive
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Real-time Status Bar */}
-      {(hasNewTasks || hasTaskUpdates || !isConnected || locationError) && (
+      {(hasNewTasks || hasTaskUpdates || !isConnected || isConnected ||locationError) && (
         <div className="bg-white border-b border-gray-200 px-4 py-2">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <div className="flex items-center space-x-4">
-              {!isConnected && (
+              {isConnected && (
                 <Badge variant="destructive" className="flex items-center space-x-1">
                   <WifiOff className="h-3 w-3" />
                   <span>Bağlantı Kesildi</span>
                 </Badge>
               )}
-              {isConnected && (
+              {!isConnected && (
                 <Badge variant="default" className="flex items-center space-x-1 bg-green-500">
                   <Wifi className="h-3 w-3" />
                   <span>Canlı</span>

@@ -33,25 +33,33 @@ export function useRealTimeUpdates(
   }, [driverId, enableNotifications])
 
   // Setup real-time subscriptions
-  useEffect(() => {
-    if (!driverId) return
+ useEffect(() => {
+  if (!driverId) return;
 
-    console.log('Setting up real-time subscriptions for driver:', driverId)
+  console.log('Setting up real-time subscriptions for driver:', driverId);
 
-    // Subscribe to task updates
-    const taskChannel = notificationService.subscribeToTaskUpdates(driverId, handleTaskUpdate)
-    
-    taskChannel.on('system', {}, (status) => {
-      setIsConnected(status === 'SUBSCRIBED')
-    })
+  const taskChannel = notificationService.subscribeToTaskUpdates(driverId, handleTaskUpdate);
+  
+  taskChannel.on('system', {}, (status) => {
+    console.log('Channel status:', status);
+    setIsConnected(status === 'SUBSCRIBED');
+  });
 
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up real-time subscriptions')
-      taskChannel.unsubscribe()
-      notificationService.unsubscribe(`tasks-${driverId}`)
-    }
-  }, [driverId, handleTaskUpdate, enableNotifications])
+  taskChannel.on('error', (error) => {
+    console.error('Channel error:', error);
+  });
+
+  taskChannel.on('close', () => {
+    console.log('Channel closed');
+    setIsConnected(false);
+  });
+
+  return () => {
+    console.log('Cleaning up real-time subscriptions');
+    taskChannel.unsubscribe();
+    notificationService.unsubscribe(`tasks-${driverId}`);
+  };
+}, [driverId, handleTaskUpdate, enableNotifications]);
 
   // Clear notifications
   const clearNewTasksFlag = useCallback(() => {

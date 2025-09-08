@@ -122,21 +122,6 @@ export default function RatingsPage({ profile, driver, setCurrentPage }: Ratings
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            onClick={() => setCurrentPage("dashboard")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Geri</span>
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Müşteri Değerlendirmeleri</h1>
-        </div>
-      </div>
 
       {/* Summary Card */}
       {totalRatings > 0 && (
