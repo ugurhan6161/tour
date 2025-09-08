@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, User, Calendar, MapPin, Phone, FileText, Search, Filter, ChevronDown, ChevronUp, Edit, Upload, ArrowRightLeft, MessageCircle } from "lucide-react";
 import TaskEditModal from "./task-edit-modal";

@@ -1,38 +1,57 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, Users, Calendar, MapPin, LogOut, RefreshCw, Activity, Clock, CheckCircle, XCircle, Navigation, BarChart3, ChevronDown, ChevronUp, Map, Route } from "lucide-react";
-import TaskCreationForm from "./task-creation-form";
-import TasksTable from "./tasks-table";
-import DriversManagement from "./drivers-management";
-import LiveOperationsMap from "./live-operations-map";
-import RoutesPage from "@/components/driver/RoutesPage";
+import { useState, useEffect, useMemo } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  Plus,
+  Users,
+  Calendar,
+  MapPin,
+  LogOut,
+  RefreshCw,
+  Activity,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Navigation,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Map,
+  Route,
+  FileText,
+} from "lucide-react"
+import TaskCreationForm from "./task-creation-form"
+import TasksTable from "./tasks-table"
+import DriversManagement from "./drivers-management"
+import LiveOperationsMap from "./live-operations-map"
+import RoutesPage from "@/components/driver/RoutesPage"
+import ReportsComponent from "./reports-component" // Bu komponenti oluşturacağız
 
 interface OperationsDashboardProps {
-  profile: any;
-  initialTasks: any[];
-  drivers: any[];
+  profile: any
+  initialTasks: any[]
+  drivers: any[]
 }
 
 export default function OperationsDashboard({ profile, initialTasks, drivers }: OperationsDashboardProps) {
-  const [tasks, setTasks] = useState(initialTasks);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [currentDrivers, setCurrentDrivers] = useState(drivers);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(false);
-  const [locations, setLocations] = useState<any[]>([]);
-  const [routes, setRoutes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+  const [tasks, setTasks] = useState(initialTasks)
+  const [activeTab, setActiveTab] = useState("overview")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [currentDrivers, setCurrentDrivers] = useState(drivers)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isStatsOpen, setIsStatsOpen] = useState(false)
+  const [locations, setLocations] = useState<any[]>([])
+  const [routes, setRoutes] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   // Normalize driver data structure
   const normalizeDriverData = (driver: any) => {
@@ -45,8 +64,8 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         phone: driver.phone || "",
         vehicle_plate: driver.drivers.vehicle_plate || driver.driver_info?.vehicle_plate || "",
         license_number: driver.drivers.license_number || driver.driver_info?.license_number || "",
-        is_active: driver.drivers.is_active ?? driver.driver_info?.is_active ?? false
-      };
+        is_active: driver.drivers.is_active ?? driver.driver_info?.is_active ?? false,
+      }
     } else if (driver.driver_info) {
       // From drivers-management structure: profile with driver_info nested
       return {
@@ -55,8 +74,8 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         phone: driver.phone || "",
         vehicle_plate: driver.driver_info.vehicle_plate || "",
         license_number: driver.driver_info.license_number || "",
-        is_active: driver.driver_info.is_active ?? false
-      };
+        is_active: driver.driver_info.is_active ?? false,
+      }
     } else {
       // Direct driver structure or fallback
       return {
@@ -65,84 +84,88 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         phone: driver.phone || "",
         vehicle_plate: driver.vehicle_plate || "",
         license_number: driver.license_number || "",
-        is_active: driver.is_active ?? false
-      };
+        is_active: driver.is_active ?? false,
+      }
     }
-  };
+  }
 
   // Normalize drivers data
   const normalizedDrivers = useMemo(() => {
     if (!drivers || !Array.isArray(drivers)) {
-      console.error("[OperationsDashboard] Invalid drivers prop:", drivers);
-      return [];
+      console.error("[OperationsDashboard] Invalid drivers prop:", drivers)
+      return []
     }
-    return drivers.map(normalizeDriverData);
-  }, [drivers]);
+    return drivers.map(normalizeDriverData)
+  }, [drivers])
 
   // Normalize currentDrivers data
   const normalizedCurrentDrivers = useMemo(() => {
     if (!currentDrivers || !Array.isArray(currentDrivers)) {
-      console.error("[OperationsDashboard] Invalid currentDrivers:", currentDrivers);
-      return [];
+      console.error("[OperationsDashboard] Invalid currentDrivers:", currentDrivers)
+      return []
     }
-    return currentDrivers.map(normalizeDriverData);
-  }, [currentDrivers]);
+    return currentDrivers.map(normalizeDriverData)
+  }, [currentDrivers])
 
   // Load locations with enhanced error handling
   const loadLocations = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
+      setLoading(true)
+      setError(null)
+
       const { data, error } = await supabase
-        .from('driver_locations')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("driver_locations")
+        .select("*")
+        .order("created_at", { ascending: false })
 
       if (error) {
-        console.error('Supabase error loading locations:', {
+        console.error("Supabase error loading locations:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
-          code: error.code
-        });
-        
+          code: error.code,
+        })
+
         // Handle empty table gracefully
-        if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
-          console.log('Driver locations table appears to be empty or not exist, setting empty locations');
-          setLocations([]);
-          return;
+        if (
+          error.code === "PGRST116" ||
+          error.message.includes("relation") ||
+          error.message.includes("does not exist")
+        ) {
+          console.log("Driver locations table appears to be empty or not exist, setting empty locations")
+          setLocations([])
+          return
         }
-        
-        throw error;
+
+        throw error
       }
-      
-      setLocations(data || []);
-      console.log(`Loaded ${(data || []).length} locations`);
+
+      setLocations(data || [])
+      console.log(`Loaded ${(data || []).length} locations`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error("Error loading locations:", errorMessage);
-      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      console.error("Error loading locations:", errorMessage)
+
       // Set empty locations instead of error state to prevent app crash
-      setLocations([]);
-      
+      setLocations([])
+
       // Only set error if it's a serious issue, not empty data
-      if (!errorMessage.includes('empty') && !errorMessage.includes('no rows')) {
-        setError("Konumlar yüklenirken hata oluştu");
+      if (!errorMessage.includes("empty") && !errorMessage.includes("no rows")) {
+        setError("Konumlar yüklenirken hata oluştu")
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // Load routes with enhanced error handling
   const loadRoutes = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
+      setLoading(true)
+      setError(null)
+
       const { data: routesData, error: routesError } = await supabase
-        .from('tour_routes')
+        .from("tour_routes")
         .select(`
           *,
           route_places (
@@ -152,72 +175,76 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
             order_index
           )
         `)
-        .order('created_at', { ascending: false });
+        .order("created_at", { ascending: false })
 
       if (routesError) {
-        console.error('Supabase error loading routes:', {
+        console.error("Supabase error loading routes:", {
           message: routesError.message,
           details: routesError.details,
           hint: routesError.hint,
-          code: routesError.code
-        });
-        
+          code: routesError.code,
+        })
+
         // Handle empty table gracefully
-        if (routesError.code === 'PGRST116' || routesError.message.includes('relation') || routesError.message.includes('does not exist')) {
-          console.log('Routes table appears to be empty or not exist, setting empty routes');
-          setRoutes([]);
-          return;
+        if (
+          routesError.code === "PGRST116" ||
+          routesError.message.includes("relation") ||
+          routesError.message.includes("does not exist")
+        ) {
+          console.log("Routes table appears to be empty or not exist, setting empty routes")
+          setRoutes([])
+          return
         }
-        
-        throw routesError;
+
+        throw routesError
       }
-      
-      setRoutes(routesData || []);
-      console.log(`Loaded ${(routesData || []).length} routes`);
+
+      setRoutes(routesData || [])
+      console.log(`Loaded ${(routesData || []).length} routes`)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error("Error loading routes:", errorMessage);
-      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      console.error("Error loading routes:", errorMessage)
+
       // Set empty routes instead of error state to prevent app crash
-      setRoutes([]);
-      
+      setRoutes([])
+
       // Only set error if it's a serious issue, not empty data
-      if (!errorMessage.includes('empty') && !errorMessage.includes('no rows')) {
-        setError("Rotalar yüklenirken hata oluştu");
+      if (!errorMessage.includes("empty") && !errorMessage.includes("no rows")) {
+        setError("Rotalar yüklenirken hata oluştu")
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // Aktif sekme değiştiğinde verileri yükle
   useEffect(() => {
     if (activeTab === "map") {
-      loadLocations();
+      loadLocations()
     } else if (activeTab === "routes") {
-      loadRoutes();
+      loadRoutes()
     }
-  }, [activeTab]);
+  }, [activeTab])
 
   const refreshTasks = async () => {
-    setIsRefreshing(true);
+    setIsRefreshing(true)
     try {
       const { data, error } = await supabase
         .from("driver_tasks_view")
         .select("*")
-        .order("pickup_date", { ascending: true });
+        .order("pickup_date", { ascending: true })
 
       if (error) {
-        console.error("[OperationsDashboard] Error refreshing tasks:", error);
+        console.error("[OperationsDashboard] Error refreshing tasks:", error)
       } else {
-        setTasks(data || []);
+        setTasks(data || [])
       }
     } catch (error) {
-      console.error("[OperationsDashboard] Unexpected error refreshing tasks:", error);
+      console.error("[OperationsDashboard] Unexpected error refreshing tasks:", error)
     } finally {
-      setIsRefreshing(false);
+      setIsRefreshing(false)
     }
-  };
+  }
 
   const refreshDrivers = async () => {
     try {
@@ -235,50 +262,50 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
             is_active
           )
         `)
-        .eq("role", "driver");
+        .eq("role", "driver")
 
       if (error) {
-        console.error("[OperationsDashboard] Error refreshing drivers:", error);
-        setCurrentDrivers([]);
+        console.error("[OperationsDashboard] Error refreshing drivers:", error)
+        setCurrentDrivers([])
       } else {
-        setCurrentDrivers(data || []);
-        console.log("[OperationsDashboard] Refreshed drivers:", JSON.stringify(data, null, 2));
+        setCurrentDrivers(data || [])
+        console.log("[OperationsDashboard] Refreshed drivers:", JSON.stringify(data, null, 2))
       }
     } catch (error) {
-      console.error("[OperationsDashboard] Unexpected error refreshing drivers:", error);
-      setCurrentDrivers([]);
+      console.error("[OperationsDashboard] Unexpected error refreshing drivers:", error)
+      setCurrentDrivers([])
     }
-  };
+  }
 
   const handleDriverUpdate = () => {
-    refreshDrivers();
-  };
+    refreshDrivers()
+  }
 
   const getStatusCount = (status: string) => {
-    return tasks.filter((task) => task.status === status).length;
-  };
+    return tasks.filter((task) => task.status === status).length
+  }
 
   const getTodaysTasks = () => {
-    const today = new Date().toISOString().split("T")[0];
-    return tasks.filter((task) => task.pickup_date === today).length;
-  };
+    const today = new Date().toISOString().split("T")[0]
+    return tasks.filter((task) => task.pickup_date === today).length
+  }
 
   const getUnassignedTasks = () => {
-    return tasks.filter((task) => !task.assigned_driver_id).length;
-  };
+    return tasks.filter((task) => !task.assigned_driver_id).length
+  }
 
   const getActiveDrivers = () => {
-    return normalizedCurrentDrivers.filter(driver => driver.is_active).length;
-  };
+    return normalizedCurrentDrivers.filter((driver) => driver.is_active).length
+  }
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-      window.location.href = "/auth/login";
+      await supabase.auth.signOut()
+      window.location.href = "/auth/login"
     } catch (error) {
-      console.error("[OperationsDashboard] Error logging out:", error);
+      console.error("[OperationsDashboard] Error logging out:", error)
     }
-  };
+  }
 
   if (showCreateForm) {
     return (
@@ -286,12 +313,12 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         drivers={normalizedDrivers}
         onCancel={() => setShowCreateForm(false)}
         onSuccess={() => {
-          setShowCreateForm(false);
-          refreshTasks();
+          setShowCreateForm(false)
+          refreshTasks()
         }}
         profile={profile}
       />
-    );
+    )
   }
 
   return (
@@ -320,19 +347,19 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                 variant="outline"
                 size="sm"
                 disabled={isRefreshing}
-                className="hidden sm:flex items-center space-x-2 hover:bg-blue-50 border-blue-200"
+                className="hidden sm:flex items-center space-x-2 hover:bg-blue-50 border-blue-200 bg-transparent"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
                 <span>Yenile</span>
               </Button>
-              <Button 
-                onClick={refreshTasks} 
-                variant="outline" 
-                size="sm" 
+              <Button
+                onClick={refreshTasks}
+                variant="outline"
+                size="sm"
                 disabled={isRefreshing}
-                className="sm:hidden p-1.5 hover:bg-blue-50 border-blue-200"
+                className="sm:hidden p-1.5 hover:bg-blue-50 border-blue-200 bg-transparent"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
               </Button>
               <Button
                 onClick={() => setShowCreateForm(true)}
@@ -351,7 +378,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                 onClick={handleLogout}
                 variant="outline"
                 size="sm"
-                className="hidden sm:flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                className="hidden sm:flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-transparent"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Çıkış</span>
@@ -360,7 +387,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                 onClick={handleLogout}
                 variant="outline"
                 size="sm"
-                className="sm:hidden p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                className="sm:hidden p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-transparent"
               >
                 <LogOut className="h-3.5 w-3.5" />
               </Button>
@@ -425,7 +452,9 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                     <div className="p-1 sm:p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md inline-block mb-1 sm:mb-2">
                       <CheckCircle className="h-2.5 w-2.5 sm:h-4 sm:w-4 text-white" />
                     </div>
-                    <p className="text-base sm:text-xl font-bold text-green-600 mb-0.5">{getStatusCount("completed")}</p>
+                    <p className="text-base sm:text-xl font-bold text-green-600 mb-0.5">
+                      {getStatusCount("completed")}
+                    </p>
                     <p className="text-[9px] sm:text-xs font-medium text-gray-600">Tamamlanan</p>
                   </div>
                 </CardContent>
@@ -462,36 +491,42 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-2 sm:p-3">
-              <TabsList className="grid grid-cols-3 md:grid-cols-5 bg-white/50 rounded-lg p-1 gap-1">
-                <TabsTrigger 
-                  value="overview" 
+              <TabsList className="grid grid-cols-3 md:grid-cols-6 bg-white/50 rounded-lg p-1 gap-1">
+                <TabsTrigger
+                  value="overview"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   📊 Genel Bakış
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="tasks" 
+                <TabsTrigger
+                  value="tasks"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   📋 Görevler
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="drivers" 
+                <TabsTrigger
+                  value="drivers"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   👥 Şoförler
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="map" 
+                <TabsTrigger
+                  value="map"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   🗺️ Harita
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="routes" 
+                <TabsTrigger
+                  value="routes"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   🛣️ Rotalar
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reports"
+                  className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+                >
+                  📊 Raporlar
                 </TabsTrigger>
               </TabsList>
             </CardHeader>
@@ -509,7 +544,10 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                   <CardContent className="p-2 sm:p-3 max-h-64 overflow-y-auto">
                     <div className="space-y-2">
                       {tasks.slice(0, 5).map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                        <div
+                          key={task.id}
+                          className="flex items-center justify-between p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                        >
                           <div className="flex items-center space-x-2">
                             <div className="p-1 bg-blue-100 rounded-md">
                               <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
@@ -613,27 +651,15 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
               </TabsContent>
 
               <TabsContent value="tasks" className="mt-0">
-                <TasksTable
-                  tasks={tasks}
-                  drivers={normalizedDrivers}
-                  onTaskUpdate={refreshTasks}
-                  profile={profile}
-                />
+                <TasksTable tasks={tasks} drivers={normalizedDrivers} onTaskUpdate={refreshTasks} profile={profile} />
               </TabsContent>
 
               <TabsContent value="drivers" className="mt-0">
-                <DriversManagement
-                  drivers={normalizedCurrentDrivers}
-                  onDriverUpdate={handleDriverUpdate}
-                />
+                <DriversManagement drivers={normalizedCurrentDrivers} onDriverUpdate={handleDriverUpdate} />
               </TabsContent>
 
               <TabsContent value="map" className="mt-0">
-                <LiveOperationsMap
-                  profile={profile}
-                  drivers={normalizedCurrentDrivers}
-                  tasks={tasks}
-                />
+                <LiveOperationsMap profile={profile} drivers={normalizedCurrentDrivers} tasks={tasks} />
               </TabsContent>
 
               <TabsContent value="routes" className="mt-0">
@@ -646,10 +672,14 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                   setError={setError}
                 />
               </TabsContent>
+
+              <TabsContent value="reports" className="mt-0">
+                <ReportsComponent tasks={tasks} drivers={normalizedCurrentDrivers} profile={profile} />
+              </TabsContent>
             </CardContent>
           </Tabs>
         </Card>
       </div>
     </div>
-  );
+  )
 }

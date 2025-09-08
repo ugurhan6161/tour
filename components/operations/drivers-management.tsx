@@ -230,46 +230,46 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
   const inactiveDriversCount = drivers.length - activeDriversCount
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-2 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <Card className="shadow-lg border-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-blue-500 rounded-lg shadow-lg">
-                <Users className="h-5 w-5 text-white" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-2 sm:p-3 bg-blue-500 rounded-lg shadow-lg">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-blue-600">{drivers.length}</p>
-                <p className="text-sm font-medium text-blue-700">Toplam Şoför</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{drivers.length}</p>
+                <p className="text-xs sm:text-sm font-medium text-blue-700">Toplam Şoför</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-lg border-0 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-green-500 rounded-lg shadow-lg">
-                <CheckCircle className="h-5 w-5 text-white" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-2 sm:p-3 bg-green-500 rounded-lg shadow-lg">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{activeDriversCount}</p>
-                <p className="text-sm font-medium text-green-700">Aktif Şoför</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{activeDriversCount}</p>
+                <p className="text-xs sm:text-sm font-medium text-green-700">Aktif Şoför</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-lg border-0 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-red-500 rounded-lg shadow-lg">
-                <XCircle className="h-5 w-5 text-white" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-2 sm:p-3 bg-red-500 rounded-lg shadow-lg">
+                <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{inactiveDriversCount}</p>
-                <p className="text-sm font-medium text-red-700">Pasif Şoför</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{inactiveDriversCount}</p>
+                <p className="text-xs sm:text-sm font-medium text-red-700">Pasif Şoför</p>
               </div>
             </div>
           </CardContent>
@@ -277,10 +277,10 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
       </div>
 
       <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-4">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
-            <CardTitle className="flex items-center space-x-2 text-gray-800">
-              <Users className="h-5 w-5 text-gray-600" />
+            <CardTitle className="flex items-center space-x-2 text-gray-800 text-base sm:text-lg">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
               <span>Şoför Yönetimi</span>
             </CardTitle>
 
@@ -291,14 +291,14 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                 placeholder="Şoför ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-lg border-2 border-gray-200 focus:border-blue-400 bg-white/80"
+                className="pl-10 rounded-lg border-2 border-gray-200 focus:border-blue-400 bg-white/80 text-sm"
               />
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="p-3 sm:p-4 lg:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {filteredDrivers.map((driver) => {
               const vehiclePlate = driver.vehicle_plate || "Araç yok"
               const isActive = driver.is_active ?? true
@@ -307,12 +307,12 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
               return (
                 <Card
                   key={driver.user_id}
-                  className="shadow-lg border-0 bg-white rounded-xl overflow-hidden group hover:scale-105 transition-transform duration-300"
+                  className="shadow-lg border-0 bg-white rounded-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-300"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-12 w-12 ring-2 ring-blue-100">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-start justify-between mb-3 sm:mb-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3 flex-1">
+                        <Avatar className="h-10 w-10 sm:h-12 sm:w-12 ring-2 ring-blue-100 flex-shrink-0">
                           {driver.driver_photos?.[0]?.photo_url ? (
                             <AvatarImage
                               src={`${driver.driver_photos[0].photo_url}?t=${Date.now()}`}
@@ -324,13 +324,13 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                               }}
                             />
                           ) : (
-                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold">
+                            <AvatarFallback className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm">
                               {driver.full_name?.charAt(0) || "Ş"}
                             </AvatarFallback>
                           )}
                         </Avatar>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-900 text-sm">{driver.full_name}</h3>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 text-sm sm:text-base truncate">{driver.full_name}</h3>
                           <Badge
                             className={`text-xs mt-1 ${
                               isActive
@@ -354,25 +354,27 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg">
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 sm:p-3 rounded-lg">
                         <div className="flex items-center space-x-2">
-                          <Phone className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800">Telefon</span>
+                          <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-blue-800">Telefon</span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-1 font-medium">{driver.phone || "Telefon yok"}</p>
+                        <p className="text-xs sm:text-sm text-gray-700 mt-1 font-medium truncate">
+                          {driver.phone || "Telefon yok"}
+                        </p>
                       </div>
 
-                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-3 rounded-lg">
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-2 sm:p-3 rounded-lg">
                         <div className="flex items-center space-x-2">
-                          <Car className="h-4 w-4 text-purple-600" />
-                          <span className="text-sm font-medium text-purple-800">Araç Plakası</span>
+                          <Car className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-purple-800">Plaka</span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-1 font-medium">{vehiclePlate}</p>
+                        <p className="text-xs sm:text-sm text-gray-700 mt-1 font-medium">{vehiclePlate}</p>
                       </div>
 
                       {licenseNumber && (
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-2 sm:p-3 rounded-lg hidden sm:block">
                           <div className="flex items-center space-x-2">
                             <User className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium text-green-800">Ehliyet No</span>
@@ -382,16 +384,16 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                       )}
 
                       {/* Ratings Summary */}
-                      <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-3 rounded-lg">
+                      <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-2 sm:p-3 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
-                            <Star className="h-4 w-4 text-amber-600 fill-amber-600" />
-                            <span className="text-sm font-medium text-amber-800">Değerlendirme</span>
+                            <Star className="h-3 w-3 sm:h-4 sm:w-4 text-amber-600 fill-amber-600 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm font-medium text-amber-800">Değerlendirme</span>
                           </div>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-xs h-6 border-amber-200 text-amber-700 hover:bg-amber-50 bg-transparent"
+                            className="text-xs h-6 px-2 border-amber-200 text-amber-700 hover:bg-amber-50 bg-transparent"
                             onClick={() => fetchDriverRatings(driver.user_id)}
                           >
                             Detay
@@ -401,12 +403,12 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100 gap-2">
                       <Button
                         onClick={() => handleEdit(driver)}
                         size="sm"
                         variant="outline"
-                        className="flex items-center space-x-2 border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                        className="flex items-center space-x-1 sm:space-x-2 border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 flex-1 h-8 sm:h-9 text-xs sm:text-sm"
                       >
                         <Edit className="h-3 w-3" />
                         <span>Düzenle</span>
@@ -415,7 +417,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                         onClick={() => handleDelete(driver.user_id)}
                         size="sm"
                         variant="outline"
-                        className="flex items-center space-x-2 border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                        className="flex items-center space-x-1 sm:space-x-2 border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300 flex-1 h-8 sm:h-9 text-xs sm:text-sm"
                       >
                         <Trash2 className="h-3 w-3" />
                         <span>Sil</span>
@@ -428,14 +430,14 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
           </div>
 
           {filteredDrivers.length === 0 && (
-            <div className="text-center py-12">
-              <div className="p-4 bg-gray-100 rounded-full inline-block mb-4">
-                <Users className="h-12 w-12 text-gray-400" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="p-3 sm:p-4 bg-gray-100 rounded-full inline-block mb-4">
+                <Users className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                 {searchQuery ? "Arama sonucu bulunamadı" : "Şoför bulunamadı"}
               </h3>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 px-4">
                 {searchQuery ? `"${searchQuery}" için arama sonucu bulunamadı.` : "Henüz kayıtlı şoför bulunmuyor."}
               </p>
             </div>
@@ -443,12 +445,11 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
         </CardContent>
       </Card>
 
-      {/* Ratings Detail Modal */}
       <Dialog open={isRatingsModalOpen} onOpenChange={setIsRatingsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto mx-4 sm:mx-auto">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex items-center space-x-2 text-gray-800">
-              <Star className="h-5 w-5 text-amber-600 fill-amber-600" />
+            <DialogTitle className="flex items-center space-x-2 text-gray-800 text-base sm:text-lg">
+              <Star className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 fill-amber-600" />
               <span>Şoför Değerlendirmeleri</span>
             </DialogTitle>
           </DialogHeader>
@@ -513,10 +514,10 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
       </Dialog>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md mx-auto rounded-xl">
+        <DialogContent className="max-w-md mx-4 sm:mx-auto rounded-xl">
           <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex items-center space-x-2 text-gray-800">
-              <Edit className="h-5 w-5 text-blue-600" />
+            <DialogTitle className="flex items-center space-x-2 text-gray-800 text-base sm:text-lg">
+              <Edit className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               <span>Şoför Bilgilerini Düzenle</span>
             </DialogTitle>
           </DialogHeader>
@@ -577,7 +578,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
             <div className="flex space-x-2 pt-6 border-t">
               <Button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-10 sm:h-11"
               >
                 Kaydet
               </Button>
@@ -585,7 +586,7 @@ export default function DriversManagement({ drivers, onDriverUpdate }: DriversMa
                 type="button"
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
-                className="flex-1 border-2 border-gray-300 hover:bg-gray-50"
+                className="flex-1 border-2 border-gray-300 hover:bg-gray-50 h-10 sm:h-11"
               >
                 İptal
               </Button>
