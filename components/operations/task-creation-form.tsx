@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,12 @@ interface TaskCreationFormProps {
   onCancel: () => void
   onSuccess: () => void
   profile: any
+}
+
+interface AddressSuggestion {
+  display_name: string
+  lat: string
+  lon: string
 }
 
 export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile }: TaskCreationFormProps) {
@@ -45,12 +51,113 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     estimatedDropoffTime: "",
     actualDropoffTime: ""
   })
+  
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pickupSuggestions, setPickupSuggestions] = useState<AddressSuggestion[]>([])
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<AddressSuggestion[]>([])
+  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
+  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  
+  const pickupRef = useRef<HTMLDivElement>(null)
+  const dropoffRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   const activeDrivers = drivers.filter((driver) => driver.driver_info?.is_active === true)
-  console.log("[TaskCreationForm] Active drivers:", JSON.stringify(activeDrivers, null, 2))
+
+  // Click outside handler for suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickupRef.current && !pickupRef.current.contains(event.target as Node)) {
+        setShowPickupSuggestions(false)
+      }
+      if (dropoffRef.current && !dropoffRef.current.contains(event.target as Node)) {
+        setShowDropoffSuggestions(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
+
+  // Search addresses using OpenStreetMap Nominatim
+  const searchAddress = async (query: string): Promise<AddressSuggestion[]> => {
+    if (!query || query.length < 3) {
+      return []
+    }
+
+    try {
+      setIsSearching(true)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`
+      )
+      
+      if (!response.ok) {
+        throw new Error('Adres arama başarısız')
+      }
+
+      const data = await response.json()
+      return data.map((item: any) => ({
+        display_name: item.display_name,
+        lat: item.lat,
+        lon: item.lon
+      }))
+    } catch (error) {
+      console.error('Adres arama hatası:', error)
+      return []
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Handle pickup address input with debouncing
+  const handlePickupAddressChange = async (value: string) => {
+    handleInputChange("pickupLocation", value)
+    handleInputChange("pickupCoordinates", "")
+    
+    if (value.length >= 3) {
+      const suggestions = await searchAddress(value)
+      setPickupSuggestions(suggestions)
+      setShowPickupSuggestions(true)
+    } else {
+      setPickupSuggestions([])
+      setShowPickupSuggestions(false)
+    }
+  }
+
+  // Handle dropoff address input with debouncing
+  const handleDropoffAddressChange = async (value: string) => {
+    handleInputChange("dropoffLocation", value)
+    handleInputChange("dropoffCoordinates", "")
+    
+    if (value.length >= 3) {
+      const suggestions = await searchAddress(value)
+      setDropoffSuggestions(suggestions)
+      setShowDropoffSuggestions(true)
+    } else {
+      setDropoffSuggestions([])
+      setShowDropoffSuggestions(false)
+    }
+  }
+
+  // Select pickup address from suggestions
+  const handlePickupAddressSelect = (suggestion: AddressSuggestion) => {
+    handleInputChange("pickupLocation", suggestion.display_name)
+    handleInputChange("pickupCoordinates", `${suggestion.lat},${suggestion.lon}`)
+    setShowPickupSuggestions(false)
+    setPickupSuggestions([])
+  }
+
+  // Select dropoff address from suggestions
+  const handleDropoffAddressSelect = (suggestion: AddressSuggestion) => {
+    handleInputChange("dropoffLocation", suggestion.display_name)
+    handleInputChange("dropoffCoordinates", `${suggestion.lat},${suggestion.lon}`)
+    setShowDropoffSuggestions(false)
+    setDropoffSuggestions([])
+  }
 
   const handleInputChange = (field: string, value: string | null | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -177,24 +284,117 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 relative" ref={pickupRef}>
                   <Label htmlFor="pickupLocation" className="text-sm font-medium">Alış Konumu</Label>
+                  <div className="relative">
+                    <Input
+                      id="pickupLocation"
+                      value={formData.pickupLocation}
+                      onChange={(e) => handlePickupAddressChange(e.target.value)}
+                      placeholder="Örn: İstanbul Havalimanı"
+                      required
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {pickupSuggestions.map((suggestion, index) => (
+                        <div
+                          key={index}
+                          className="px-4 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                          onClick={() => handlePickupAddressSelect(suggestion)}
+                        >
+                          <div className="text-sm font-medium text-gray-800">
+                            {suggestion.display_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {suggestion.lat}, {suggestion.lon}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 relative" ref={dropoffRef}>
+                  <Label htmlFor="dropoffLocation" className="text-sm font-medium">Bırakış Konumu</Label>
+                  <div className="relative">
+                    <Input
+                      id="dropoffLocation"
+                      value={formData.dropoffLocation}
+                      onChange={(e) => handleDropoffAddressChange(e.target.value)}
+                      placeholder="Örn: Taksim Meydanı"
+                      required
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {dropoffSuggestions.map((suggestion, index) => (
+                        <div
+                          key={index}
+                          className="px-4 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                          onClick={() => handleDropoffAddressSelect(suggestion)}
+                        >
+                          <div className="text-sm font-medium text-gray-800">
+                            {suggestion.display_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {suggestion.lat}, {suggestion.lon}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Koordinat alanları - artık otomatik dolacak */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pickupCoordinates" className="text-sm font-medium">
+                    Alış Koordinatları (Enlem,Boylam)
+                    {formData.pickupCoordinates && (
+                      <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">
+                        Otomatik
+                      </Badge>
+                    )}
+                  </Label>
                   <Input
-                    id="pickupLocation"
-                    value={formData.pickupLocation}
-                    onChange={(e) => handleInputChange("pickupLocation", e.target.value)}
-                    placeholder="Örn: İstanbul Havalimanı"
-                    required
+                    id="pickupCoordinates"
+                    value={formData.pickupCoordinates}
+                    onChange={(e) => handleInputChange("pickupCoordinates", e.target.value)}
+                    placeholder="Adres seçildiğinde otomatik dolacak"
+                    readOnly
+                    className="bg-gray-50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="dropoffLocation" className="text-sm font-medium">Bırakış Konumu</Label>
+                  <Label htmlFor="dropoffCoordinates" className="text-sm font-medium">
+                    Bırakış Koordinatları (Enlem,Boylam)
+                    {formData.dropoffCoordinates && (
+                      <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">
+                        Otomatik
+                      </Badge>
+                    )}
+                  </Label>
                   <Input
-                    id="dropoffLocation"
-                    value={formData.dropoffLocation}
-                    onChange={(e) => handleInputChange("dropoffLocation", e.target.value)}
-                    placeholder="Örn: Taksim Meydanı"
-                    required
+                    id="dropoffCoordinates"
+                    value={formData.dropoffCoordinates}
+                    onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
+                    placeholder="Adres seçildiğinde otomatik dolacak"
+                    readOnly
+                    className="bg-gray-50"
                   />
                 </div>
               </div>
@@ -306,27 +506,6 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                     value={formData.estimatedDuration}
                     onChange={(e) => handleInputChange("estimatedDuration", e.target.value)}
                     placeholder="Örn: 60"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pickupCoordinates" className="text-sm font-medium">Alış Koordinatları (Enlem,Boylam)</Label>
-                  <Input
-                    id="pickupCoordinates"
-                    value={formData.pickupCoordinates}
-                    onChange={(e) => handleInputChange("pickupCoordinates", e.target.value)}
-                    placeholder="Örn: 41.0082,28.9784"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dropoffCoordinates" className="text-sm font-medium">Bırakış Koordinatları (Enlem,Boylam)</Label>
-                  <Input
-                    id="dropoffCoordinates"
-                    value={formData.dropoffCoordinates}
-                    onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
-                    placeholder="Örn: 41.0082,28.9784"
                   />
                 </div>
               </div>
