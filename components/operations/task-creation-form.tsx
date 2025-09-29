@@ -46,6 +46,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     requiresDocument: false,
     pickupCoordinates: "",
     dropoffCoordinates: "",
+    // Bu alanlar artık gizli - backend için boş gönderilecek
     estimatedPickupTime: "",
     actualPickupTime: "",
     estimatedDropoffTime: "",
@@ -65,7 +66,14 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   const dropoffRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
-  const activeDrivers = drivers.filter((driver) => driver.driver_info?.is_active === true)
+  // Şoför verilerini düzgün şekilde filtreleme
+  const activeDrivers = drivers.filter((driver) => {
+    // driver doğrudan driver_info içeriyor mu kontrol et
+    return driver.driver_info?.is_active === true || driver.is_active === true
+  })
+
+  console.log("[TaskCreationForm] All drivers:", drivers)
+  console.log("[TaskCreationForm] Active drivers:", activeDrivers)
 
   // Click outside handler for suggestions
   useEffect(() => {
@@ -174,11 +182,21 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   }
 
   const handleDriverChange = (driverId: string) => {
+    console.log("[TaskCreationForm] Selected driver ID:", driverId)
+    
     const selectedDriver = drivers.find((d) => d.id === driverId)
+    console.log("[TaskCreationForm] Selected driver:", selectedDriver)
+    
+    // Farklı veri yapılarına göre plaka bilgisini al
+    const vehiclePlate = selectedDriver?.driver_info?.vehicle_plate || 
+                        selectedDriver?.vehicle_plate || 
+                        selectedDriver?.vehicle_info?.plate || 
+                        ""
+
     setFormData((prev) => ({
       ...prev,
       assignedDriverId: driverId === "null" ? null : driverId,
-      vehiclePlate: driverId === "null" ? "" : selectedDriver?.driver_info?.vehicle_plate || ""
+      vehiclePlate: vehiclePlate
     }))
   }
 
@@ -223,10 +241,11 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
         requires_document: formData.requiresDocument,
         pickup_coordinates: formatCoordinates(formData.pickupCoordinates),
         dropoff_coordinates: formatCoordinates(formData.dropoffCoordinates),
-        estimated_pickup_time: formData.estimatedPickupTime || null,
-        actual_pickup_time: formData.actualPickupTime || null,
-        estimated_dropoff_time: formData.estimatedDropoffTime || null,
-        actual_dropoff_time: formData.actualDropoffTime || null,
+        // Bu alanlar null olarak gönderilecek
+        estimated_pickup_time: null,
+        actual_pickup_time: null,
+        estimated_dropoff_time: null,
+        actual_dropoff_time: null,
         created_by: profile.id
       }
 
@@ -266,6 +285,25 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Şoför görüntüleme adı oluşturma
+  const getDriverDisplayName = (driver: any) => {
+    if (!driver) return "Bilinmeyen Şoför";
+    
+    // Farklı veri yapılarına göre isim bilgisini al
+    const name = driver.full_name || 
+                driver.name || 
+                `${driver.first_name || ''} ${driver.last_name || ''}`.trim() ||
+                "İsimsiz Şoför";
+    
+    // Farklı veri yapılarına göre plaka bilgisini al
+    const plate = driver.driver_info?.vehicle_plate || 
+                 driver.vehicle_plate || 
+                 driver.vehicle_info?.plate || 
+                 "Plaka yok";
+    
+    return `${name} - ${plate}`;
   }
 
   return (
@@ -410,6 +448,27 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   value={formData.dropoffCoordinates}
                   onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
                 />
+                {/* Gizli zaman alanları */}
+                <Input
+                  id="estimatedPickupTime"
+                  value={formData.estimatedPickupTime}
+                  onChange={(e) => handleInputChange("estimatedPickupTime", e.target.value)}
+                />
+                <Input
+                  id="estimatedDropoffTime"
+                  value={formData.estimatedDropoffTime}
+                  onChange={(e) => handleInputChange("estimatedDropoffTime", e.target.value)}
+                />
+                <Input
+                  id="actualPickupTime"
+                  value={formData.actualPickupTime}
+                  onChange={(e) => handleInputChange("actualPickupTime", e.target.value)}
+                />
+                <Input
+                  id="actualDropoffTime"
+                  value={formData.actualDropoffTime}
+                  onChange={(e) => handleInputChange("actualDropoffTime", e.target.value)}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -523,27 +582,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="estimatedPickupTime" className="text-sm font-medium">Tahmini Alış Zamanı</Label>
-                  <Input
-                    id="estimatedPickupTime"
-                    type="datetime-local"
-                    value={formData.estimatedPickupTime}
-                    onChange={(e) => handleInputChange("estimatedPickupTime", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="estimatedDropoffTime" className="text-sm font-medium">Tahmini Bırakış Zamanı</Label>
-                  <Input
-                    id="estimatedDropoffTime"
-                    type="datetime-local"
-                    value={formData.estimatedDropoffTime}
-                    onChange={(e) => handleInputChange("estimatedDropoffTime", e.target.value)}
-                  />
-                </div>
-              </div>
-
+              {/* Şoför Atama Bölümü */}
               <div className="space-y-2">
                 <Label htmlFor="assignedDriverId" className="text-sm font-medium">Şoför Ataması (İsteğe Bağlı)</Label>
                 <Select
@@ -558,7 +597,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                     {activeDrivers.length > 0 ? (
                       activeDrivers.map((driver) => (
                         <SelectItem key={driver.id} value={driver.id}>
-                          {driver.full_name} - {driver.driver_info?.vehicle_plate || "Plaka yok"}
+                          {getDriverDisplayName(driver)}
                         </SelectItem>
                       ))
                     ) : (
@@ -568,27 +607,13 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500">{activeDrivers.length} aktif şoför mevcut</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="actualPickupTime" className="text-sm font-medium">Gerçek Alış Zamanı</Label>
-                  <Input
-                    id="actualPickupTime"
-                    type="datetime-local"
-                    value={formData.actualPickupTime}
-                    onChange={(e) => handleInputChange("actualPickupTime", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="actualDropoffTime" className="text-sm font-medium">Gerçek Bırakış Zamanı</Label>
-                  <Input
-                    id="actualDropoffTime"
-                    type="datetime-local"
-                    value={formData.actualDropoffTime}
-                    onChange={(e) => handleInputChange("actualDropoffTime", e.target.value)}
-                  />
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-gray-500">{activeDrivers.length} aktif şoför mevcut</p>
+                  {formData.vehiclePlate && (
+                    <p className="text-xs text-green-600 font-medium">
+                      Seçili araç: {formData.vehiclePlate}
+                    </p>
+                  )}
                 </div>
               </div>
 
