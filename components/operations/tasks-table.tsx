@@ -34,6 +34,85 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
   const [showFilters, setShowFilters] = useState(false);
   const supabase = createClient();
 
+  // Adres kısaltma fonksiyonu
+  const shortenAddress = (address: string): string => {
+    if (!address) return "Adres yok";
+    
+    try {
+      // Adresi virgüllerden böl
+      const parts = address.split(',').map(part => part.trim()).filter(part => part);
+      
+      if (parts.length === 0) return address;
+      
+      // İlk bölümü al (genellikle mekan adı)
+      const firstPart = parts[0];
+      
+      // İl ve ilçe bilgilerini bul
+      let district = '';
+      let city = '';
+      
+      // Türkiye'deki illeri kontrol et
+      const cities = [
+        'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Amasya', 'Ankara', 'Antalya', 'Artvin', 'Aydın', 
+        'Balıkesir', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa', 'Çanakkale', 'Çankırı', 
+        'Çorum', 'Denizli', 'Diyarbakır', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 
+        'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkari', 'Hatay', 'Isparta', 'Mersin', 'İstanbul', 
+        'İzmir', 'Kars', 'Kastamonu', 'Kayseri', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 
+        'Kütahya', 'Malatya', 'Manisa', 'Kahramanmaraş', 'Mardin', 'Muğla', 'Muş', 'Nevşehir', 
+        'Niğde', 'Ordu', 'Rize', 'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Tekirdağ', 
+        'Tokat', 'Trabzon', 'Tunceli', 'Şanlıurfa', 'Uşak', 'Van', 'Yozgat', 'Zonguldak', 
+        'Aksaray', 'Bayburt', 'Karaman', 'Kırıkkale', 'Batman', 'Şırnak', 'Bartın', 'Ardahan', 
+        'Iğdır', 'Yalova', 'Karabük', 'Kilis', 'Osmaniye', 'Düzce'
+      ];
+      
+      // İlçe ve il bilgilerini bul
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const part = parts[i];
+        
+        // İl bilgisini bul
+        if (!city && cities.some(cityName => part.includes(cityName))) {
+          city = part;
+          continue;
+        }
+        
+        // İlçe bilgisini bul (il'den önce gelen bölüm)
+        if (city && !district && i > 0) {
+          district = parts[i];
+          break;
+        }
+      }
+      
+      // Eğer ilçe bulunamadıysa, il'den önceki bölümü al
+      if (city && !district) {
+        const cityIndex = parts.findIndex(part => part.includes(city));
+        if (cityIndex > 0) {
+          district = parts[cityIndex - 1];
+        }
+      }
+      
+      // Kısaltılmış adresi oluştur
+      let shortened = firstPart;
+      if (district) {
+        shortened += `, ${district}`;
+      }
+      if (city) {
+        shortened += `, ${city}`;
+      }
+      
+      // Eğer hiçbir kısaltma yapılamadıysa orijinal adresin ilk 50 karakterini al
+      if (shortened === firstPart && address.length > 50) {
+        return address.substring(0, 50) + '...';
+      }
+      
+      return shortened;
+      
+    } catch (error) {
+      console.error('Adres kısaltma hatası:', error);
+      // Hata durumunda orijinal adresin ilk 50 karakterini döndür
+      return address.length > 50 ? address.substring(0, 50) + '...' : address;
+    }
+  };
+
   // Normalize driver data structure
   const normalizeDriverData = (driver: any) => {
     // Handle different data structures based on the other components
@@ -238,7 +317,9 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <MapPin className="h-4 w-4 text-gray-500" />
-                            <span>{task.pickup_location} → {task.dropoff_location}</span>
+                            <span className="text-sm">
+                              {shortenAddress(task.pickup_location)} → {shortenAddress(task.dropoff_location)}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -357,7 +438,9 @@ export default function TasksTable({ tasks, drivers, onTaskUpdate, profile }: Ta
                           <div className="flex items-center gap-2 p-2 bg-green-50 rounded-md">
                             <MapPin className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs text-gray-600 truncate">{task.pickup_location || "Bilinmeyen"} → {task.dropoff_location || "Bilinmeyen"}</p>
+                              <p className="text-xs text-gray-600 truncate">
+                                {shortenAddress(task.pickup_location)} → {shortenAddress(task.dropoff_location)}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-md">
