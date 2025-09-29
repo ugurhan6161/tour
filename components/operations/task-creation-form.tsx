@@ -58,7 +58,8 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   const [dropoffSuggestions, setDropoffSuggestions] = useState<AddressSuggestion[]>([])
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
+  const [isSearchingPickup, setIsSearchingPickup] = useState(false)
+  const [isSearchingDropoff, setIsSearchingDropoff] = useState(false)
   
   const pickupRef = useRef<HTMLDivElement>(null)
   const dropoffRef = useRef<HTMLDivElement>(null)
@@ -84,13 +85,18 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   }, [])
 
   // Search addresses using OpenStreetMap Nominatim
-  const searchAddress = async (query: string): Promise<AddressSuggestion[]> => {
+  const searchAddress = async (query: string, isPickup: boolean): Promise<AddressSuggestion[]> => {
     if (!query || query.length < 3) {
       return []
     }
 
     try {
-      setIsSearching(true)
+      if (isPickup) {
+        setIsSearchingPickup(true)
+      } else {
+        setIsSearchingDropoff(true)
+      }
+
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`
       )
@@ -109,7 +115,11 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
       console.error('Adres arama hatası:', error)
       return []
     } finally {
-      setIsSearching(false)
+      if (isPickup) {
+        setIsSearchingPickup(false)
+      } else {
+        setIsSearchingDropoff(false)
+      }
     }
   }
 
@@ -119,7 +129,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     handleInputChange("pickupCoordinates", "")
     
     if (value.length >= 3) {
-      const suggestions = await searchAddress(value)
+      const suggestions = await searchAddress(value, true)
       setPickupSuggestions(suggestions)
       setShowPickupSuggestions(true)
     } else {
@@ -134,7 +144,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     handleInputChange("dropoffCoordinates", "")
     
     if (value.length >= 3) {
-      const suggestions = await searchAddress(value)
+      const suggestions = await searchAddress(value, false)
       setDropoffSuggestions(suggestions)
       setShowDropoffSuggestions(true)
     } else {
@@ -187,6 +197,13 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
         throw new Error('Geçerli bir telefon numarası girin')
       }
 
+      // Point format için doğru syntax: (lat,lon)
+      const formatCoordinates = (coords: string) => {
+        if (!coords) return null;
+        const [lat, lon] = coords.split(',').map(c => c.trim());
+        return `(${lat},${lon})`;
+      };
+
       const taskData = {
         title: formData.title,
         pickup_location: formData.pickupLocation,
@@ -204,8 +221,8 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
         priority: formData.priority,
         tracking_enabled: formData.trackingEnabled,
         requires_document: formData.requiresDocument,
-        pickup_coordinates: formData.pickupCoordinates ? formData.pickupCoordinates.split(',').map(c => parseFloat(c.trim())) : null,
-        dropoff_coordinates: formData.dropoffCoordinates ? formData.dropoffCoordinates.split(',').map(c => parseFloat(c.trim())) : null,
+        pickup_coordinates: formatCoordinates(formData.pickupCoordinates),
+        dropoff_coordinates: formatCoordinates(formData.dropoffCoordinates),
         estimated_pickup_time: formData.estimatedPickupTime || null,
         actual_pickup_time: formData.actualPickupTime || null,
         estimated_dropoff_time: formData.estimatedDropoffTime || null,
@@ -291,10 +308,15 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                       id="pickupLocation"
                       value={formData.pickupLocation}
                       onChange={(e) => handlePickupAddressChange(e.target.value)}
+                      onFocus={() => {
+                        if (pickupSuggestions.length > 0) {
+                          setShowPickupSuggestions(true)
+                        }
+                      }}
                       placeholder="Örn: İstanbul Havalimanı"
                       required
                     />
-                    {isSearching && (
+                    {isSearchingPickup && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                       </div>
@@ -302,18 +324,24 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   </div>
                   
                   {showPickupSuggestions && pickupSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                       {pickupSuggestions.map((suggestion, index) => (
                         <div
                           key={index}
-                          className="px-4 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                          className="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
                           onClick={() => handlePickupAddressSelect(suggestion)}
+                          onMouseDown={(e) => e.preventDefault()} // Prevent input blur
                         >
-                          <div className="text-sm font-medium text-gray-800">
-                            {suggestion.display_name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {suggestion.lat}, {suggestion.lon}
+                          <div className="flex items-start space-x-2">
+                            <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-800 truncate">
+                                {suggestion.display_name}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Koordinat: {suggestion.lat}, {suggestion.lon}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -328,10 +356,15 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                       id="dropoffLocation"
                       value={formData.dropoffLocation}
                       onChange={(e) => handleDropoffAddressChange(e.target.value)}
+                      onFocus={() => {
+                        if (dropoffSuggestions.length > 0) {
+                          setShowDropoffSuggestions(true)
+                        }
+                      }}
                       placeholder="Örn: Taksim Meydanı"
                       required
                     />
-                    {isSearching && (
+                    {isSearchingDropoff && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                       </div>
@@ -339,18 +372,24 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   </div>
                   
                   {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                       {dropoffSuggestions.map((suggestion, index) => (
                         <div
                           key={index}
-                          className="px-4 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                          className="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
                           onClick={() => handleDropoffAddressSelect(suggestion)}
+                          onMouseDown={(e) => e.preventDefault()} // Prevent input blur
                         >
-                          <div className="text-sm font-medium text-gray-800">
-                            {suggestion.display_name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {suggestion.lat}, {suggestion.lon}
+                          <div className="flex items-start space-x-2">
+                            <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-800 truncate">
+                                {suggestion.display_name}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Koordinat: {suggestion.lat}, {suggestion.lon}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -359,44 +398,18 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 </div>
               </div>
 
-              {/* Koordinat alanları - artık otomatik dolacak */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pickupCoordinates" className="text-sm font-medium">
-                    Alış Koordinatları (Enlem,Boylam)
-                    {formData.pickupCoordinates && (
-                      <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">
-                        Otomatik
-                      </Badge>
-                    )}
-                  </Label>
-                  <Input
-                    id="pickupCoordinates"
-                    value={formData.pickupCoordinates}
-                    onChange={(e) => handleInputChange("pickupCoordinates", e.target.value)}
-                    placeholder="Adres seçildiğinde otomatik dolacak"
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dropoffCoordinates" className="text-sm font-medium">
-                    Bırakış Koordinatları (Enlem,Boylam)
-                    {formData.dropoffCoordinates && (
-                      <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">
-                        Otomatik
-                      </Badge>
-                    )}
-                  </Label>
-                  <Input
-                    id="dropoffCoordinates"
-                    value={formData.dropoffCoordinates}
-                    onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
-                    placeholder="Adres seçildiğinde otomatik dolacak"
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
+              {/* Koordinat alanları gizli - sadece backend için */}
+              <div className="hidden">
+                <Input
+                  id="pickupCoordinates"
+                  value={formData.pickupCoordinates}
+                  onChange={(e) => handleInputChange("pickupCoordinates", e.target.value)}
+                />
+                <Input
+                  id="dropoffCoordinates"
+                  value={formData.dropoffCoordinates}
+                  onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
