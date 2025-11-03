@@ -24,7 +24,7 @@ import {
   ChevronUp,
   Map,
   Route,
-  FileText,
+  Car,
 } from "lucide-react"
 import TaskCreationForm from "./task-creation-form"
 import TasksTable from "./tasks-table"
@@ -491,7 +491,7 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm rounded-xl overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b p-2 sm:p-3">
-              <TabsList className="grid grid-cols-3 md:grid-cols-6 bg-white/50 rounded-lg p-1 gap-1">
+              <TabsList className="grid grid-cols-3 md:grid-cols-7 bg-white/50 rounded-lg p-1 gap-1">
                 <TabsTrigger
                   value="overview"
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
@@ -509,6 +509,12 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                   className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   👥 Şoförler
+                </TabsTrigger>
+                <TabsTrigger
+                  value="vehicles"
+                  className="rounded-md text-[10px] sm:text-sm font-semibold data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+                >
+                  🚗 Araçlar
                 </TabsTrigger>
                 <TabsTrigger
                   value="map"
@@ -628,7 +634,15 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
                         <span className="text-xs sm:text-sm font-medium text-purple-700">Şoförleri Yönet</span>
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 mt-2 sm:mt-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 mt-2 sm:mt-3">
+                      <Button
+                        onClick={() => setActiveTab("vehicles")}
+                        variant="outline"
+                        className="h-14 sm:h-16 flex flex-col items-center justify-center space-y-1 border-2 border-blue-200 hover:bg-blue-50 shadow-md"
+                      >
+                        <Car className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                        <span className="text-xs sm:text-sm font-medium text-blue-700">Araçları Yönet</span>
+                      </Button>
                       <Button
                         onClick={() => setActiveTab("map")}
                         variant="outline"
@@ -656,6 +670,16 @@ export default function OperationsDashboard({ profile, initialTasks, drivers }: 
 
               <TabsContent value="drivers" className="mt-0">
                 <DriversManagement drivers={normalizedCurrentDrivers} onDriverUpdate={handleDriverUpdate} />
+              </TabsContent>
+
+              <TabsContent value="vehicles" className="mt-0">
+                <div className="p-4">
+                  <iframe
+                    src="/vehicles"
+                    className="w-full h-[calc(100vh-200px)] border-0 rounded-lg"
+                    title="Araç Yönetimi"
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="map" className="mt-0">

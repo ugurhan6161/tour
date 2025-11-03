@@ -1,26 +1,26 @@
-"use client";
+"use client"
 
-import type React from "react";
-import { useState, useEffect, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, MapPin } from "lucide-react";
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Edit, MapPin, Trash2 } from "lucide-react"
 
 interface TaskEditModalProps {
-  task: any;
-  onClose: () => void;
-  onSuccess: () => void;
+  task: any
+  onClose: () => void
+  onSuccess: () => void
 }
 
 interface AddressSuggestion {
-  display_name: string;
-  lat: string;
-  lon: string;
+  display_name: string
+  lat: string
+  lon: string
 }
 
 export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModalProps) {
@@ -36,156 +36,165 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
     status: task.status || "new",
     pickupCoordinates: task.pickup_coordinates || "",
     dropoffCoordinates: task.dropoff_coordinates || "",
-  });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pickupSuggestions, setPickupSuggestions] = useState<AddressSuggestion[]>([]);
-  const [dropoffSuggestions, setDropoffSuggestions] = useState<AddressSuggestion[]>([]);
-  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
-  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
-  const [isSearchingPickup, setIsSearchingPickup] = useState(false);
-  const [isSearchingDropoff, setIsSearchingDropoff] = useState(false);
-  
-  const pickupRef = useRef<HTMLDivElement>(null);
-  const dropoffRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  })
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [pickupSuggestions, setPickupSuggestions] = useState<AddressSuggestion[]>([])
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<AddressSuggestion[]>([])
+  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
+  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false)
+  const [isSearchingPickup, setIsSearchingPickup] = useState(false)
+  const [isSearchingDropoff, setIsSearchingDropoff] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const pickupRef = useRef<HTMLDivElement>(null)
+  const dropoffRef = useRef<HTMLDivElement>(null)
+  const supabase = createClient()
 
   // Click outside handler for suggestions
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickupRef.current && !pickupRef.current.contains(event.target as Node)) {
-        setShowPickupSuggestions(false);
+        setShowPickupSuggestions(false)
       }
       if (dropoffRef.current && !dropoffRef.current.contains(event.target as Node)) {
-        setShowDropoffSuggestions(false);
+        setShowDropoffSuggestions(false)
       }
-    };
+    }
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside)
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
 
   // Search addresses using OpenStreetMap Nominatim
   const searchAddress = async (query: string, isPickup: boolean): Promise<AddressSuggestion[]> => {
     if (!query || query.length < 3) {
-      return [];
+      return []
     }
 
     try {
       if (isPickup) {
-        setIsSearchingPickup(true);
+        setIsSearchingPickup(true)
       } else {
-        setIsSearchingDropoff(true);
+        setIsSearchingDropoff(true)
       }
 
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`
-      );
-      
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`,
+      )
+
       if (!response.ok) {
-        throw new Error('Adres arama başarısız');
+        throw new Error("Adres arama başarısız")
       }
 
-      const data = await response.json();
+      const data = await response.json()
       return data.map((item: any) => ({
         display_name: item.display_name,
         lat: item.lat,
-        lon: item.lon
-      }));
+        lon: item.lon,
+      }))
     } catch (error) {
-      console.error('Adres arama hatası:', error);
-      return [];
+      console.error("Adres arama hatası:", error)
+      return []
     } finally {
       if (isPickup) {
-        setIsSearchingPickup(false);
+        setIsSearchingPickup(false)
       } else {
-        setIsSearchingDropoff(false);
+        setIsSearchingDropoff(false)
       }
     }
-  };
+  }
 
   // Handle pickup address input with debouncing
   const handlePickupAddressChange = async (value: string) => {
-    handleInputChange("pickupLocation", value);
-    
+    handleInputChange("pickupLocation", value)
+
     // Eğer adres değiştiyse koordinatları sıfırla
     if (value !== task.pickup_location) {
-      handleInputChange("pickupCoordinates", "");
+      handleInputChange("pickupCoordinates", "")
     }
-    
+
     if (value.length >= 3) {
-      const suggestions = await searchAddress(value, true);
-      setPickupSuggestions(suggestions);
-      setShowPickupSuggestions(true);
+      const suggestions = await searchAddress(value, true)
+      setPickupSuggestions(suggestions)
+      setShowPickupSuggestions(true)
     } else {
-      setPickupSuggestions([]);
-      setShowPickupSuggestions(false);
+      setPickupSuggestions([])
+      setShowPickupSuggestions(false)
     }
-  };
+  }
 
   // Handle dropoff address input with debouncing
   const handleDropoffAddressChange = async (value: string) => {
-    handleInputChange("dropoffLocation", value);
-    
+    handleInputChange("dropoffLocation", value)
+
     // Eğer adres değiştiyse koordinatları sıfırla
     if (value !== task.dropoff_location) {
-      handleInputChange("dropoffCoordinates", "");
+      handleInputChange("dropoffCoordinates", "")
     }
-    
+
     if (value.length >= 3) {
-      const suggestions = await searchAddress(value, false);
-      setDropoffSuggestions(suggestions);
-      setShowDropoffSuggestions(true);
+      const suggestions = await searchAddress(value, false)
+      setDropoffSuggestions(suggestions)
+      setShowDropoffSuggestions(true)
     } else {
-      setDropoffSuggestions([]);
-      setShowDropoffSuggestions(false);
+      setDropoffSuggestions([])
+      setShowDropoffSuggestions(false)
     }
-  };
+  }
 
   // Select pickup address from suggestions
   const handlePickupAddressSelect = (suggestion: AddressSuggestion) => {
-    handleInputChange("pickupLocation", suggestion.display_name);
-    handleInputChange("pickupCoordinates", `${suggestion.lat},${suggestion.lon}`);
-    setShowPickupSuggestions(false);
-    setPickupSuggestions([]);
-  };
+    handleInputChange("pickupLocation", suggestion.display_name)
+    handleInputChange("pickupCoordinates", `${suggestion.lat},${suggestion.lon}`)
+    setShowPickupSuggestions(false)
+    setPickupSuggestions([])
+  }
 
   // Select dropoff address from suggestions
   const handleDropoffAddressSelect = (suggestion: AddressSuggestion) => {
-    handleInputChange("dropoffLocation", suggestion.display_name);
-    handleInputChange("dropoffCoordinates", `${suggestion.lat},${suggestion.lon}`);
-    setShowDropoffSuggestions(false);
-    setDropoffSuggestions([]);
-  };
+    handleInputChange("dropoffLocation", suggestion.display_name)
+    handleInputChange("dropoffCoordinates", `${suggestion.lat},${suggestion.lon}`)
+    setShowDropoffSuggestions(false)
+    setDropoffSuggestions([])
+  }
 
   const handleInputChange = (field: string, value: string | null) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
 
   // Format coordinates for database
   const formatCoordinates = (coords: string) => {
-    if (!coords) return null;
-    const [lat, lon] = coords.split(',').map(c => c.trim());
-    return `(${lat},${lon})`;
-  };
+    if (!coords) return null
+    const [lat, lon] = coords.split(",").map((c) => c.trim())
+    return `(${lat},${lon})`
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
 
     try {
       // Validations
-      if (!formData.title || !formData.pickupLocation || !formData.dropoffLocation || !formData.pickupDate || !formData.customerName || !formData.customerPhone) {
-        throw new Error('Lütfen tüm gerekli alanları doldurun');
+      if (
+        !formData.title ||
+        !formData.pickupLocation ||
+        !formData.dropoffLocation ||
+        !formData.pickupDate ||
+        !formData.customerName ||
+        !formData.customerPhone
+      ) {
+        throw new Error("Lütfen tüm gerekli alanları doldurun")
       }
 
-      const phoneRegex = /^[\+]?[(]?[\d\s\-\(\)]{10,}$/;
+      const phoneRegex = /^[+]?[(]?[\d\s\-$$$$]{10,}$/
       if (!phoneRegex.test(formData.customerPhone)) {
-        throw new Error('Geçerli bir telefon numarası girin');
+        throw new Error("Geçerli bir telefon numarası girin")
       }
 
       const updateData = {
@@ -199,42 +208,114 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
         customer_notes: formData.customerNotes || null,
         status: formData.status,
         // Koordinatları güncelle - eğer değiştiyse
-        pickup_coordinates: formData.pickupCoordinates ? formatCoordinates(formData.pickupCoordinates) : task.pickup_coordinates,
-        dropoff_coordinates: formData.dropoffCoordinates ? formatCoordinates(formData.dropoffCoordinates) : task.dropoff_coordinates,
+        pickup_coordinates: formData.pickupCoordinates
+          ? formatCoordinates(formData.pickupCoordinates)
+          : task.pickup_coordinates,
+        dropoff_coordinates: formData.dropoffCoordinates
+          ? formatCoordinates(formData.dropoffCoordinates)
+          : task.dropoff_coordinates,
         updated_at: new Date().toISOString(),
-      };
+      }
 
-      console.log("[TaskEditModal] Updating task data:", JSON.stringify(updateData, null, 2));
+      console.log("[TaskEditModal] Updating task data:", JSON.stringify(updateData, null, 2))
 
-      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id);
+      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
 
-      if (error) throw error;
+      if (error) throw error
 
-      onSuccess();
+      onSuccess()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    setError(null)
+
+    try {
+      console.log("[TaskEditModal] Deleting task:", task.id)
+
+      const { error: deleteError } = await supabase.from("tasks").delete().eq("id", task.id)
+
+      if (deleteError) {
+        console.error("[TaskEditModal] Error deleting task:", deleteError)
+        throw deleteError
+      }
+
+      console.log("[TaskEditModal] Task deleted successfully")
+      onSuccess()
+    } catch (error: unknown) {
+      console.error("[TaskEditModal] Delete error:", error)
+      setError(error instanceof Error ? error.message : "Görev silinirken bir hata oluştu")
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   // Koordinat formatını düzgün göster
   const formatCoordinateDisplay = (coord: string) => {
-    if (!coord) return "Koordinat yok";
+    if (!coord) return "Koordinat yok"
     // (41.0082,28.9784) formatını düzgün göster
-    const cleanCoord = coord.replace(/[()]/g, '');
-    return cleanCoord || "Koordinat yok";
-  };
+    const cleanCoord = coord.replace(/[()]/g, "")
+    return cleanCoord || "Koordinat yok"
+  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <Edit className="h-5 w-5 text-blue-600" />
-            <span>Görevi Düzenle</span>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Edit className="h-5 w-5 text-blue-600" />
+              <span>Görevi Düzenle</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Sil
+            </Button>
           </DialogTitle>
         </DialogHeader>
+
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+              <div className="flex items-start space-x-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Görevi Sil</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Bu görevi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                  </p>
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <Button onClick={handleDelete} disabled={isDeleting} className="flex-1 bg-red-600 hover:bg-red-700">
+                  {isDeleting ? "Siliniyor..." : "Evet, Sil"}
+                </Button>
+                <Button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isDeleting}
+                >
+                  İptal
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -300,7 +381,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   onChange={(e) => handlePickupAddressChange(e.target.value)}
                   onFocus={() => {
                     if (pickupSuggestions.length > 0) {
-                      setShowPickupSuggestions(true);
+                      setShowPickupSuggestions(true)
                     }
                   }}
                 />
@@ -310,7 +391,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   </div>
                 )}
               </div>
-              
+
               {showPickupSuggestions && pickupSuggestions.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                   {pickupSuggestions.map((suggestion, index) => (
@@ -323,9 +404,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                       <div className="flex items-start space-x-2">
                         <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-800 truncate">
-                            {suggestion.display_name}
-                          </div>
+                          <div className="text-sm font-medium text-gray-800 truncate">{suggestion.display_name}</div>
                           <div className="text-xs text-gray-500 mt-1">
                             Koordinat: {suggestion.lat}, {suggestion.lon}
                           </div>
@@ -335,11 +414,12 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   ))}
                 </div>
               )}
-              
+
               {/* Mevcut koordinat bilgisi */}
               {formData.pickupCoordinates && (
                 <div className="text-xs text-gray-500 mt-1">
-                  <span className="font-medium">Mevcut koordinat:</span> {formatCoordinateDisplay(formData.pickupCoordinates)}
+                  <span className="font-medium">Mevcut koordinat:</span>{" "}
+                  {formatCoordinateDisplay(formData.pickupCoordinates)}
                 </div>
               )}
             </div>
@@ -355,7 +435,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   onChange={(e) => handleDropoffAddressChange(e.target.value)}
                   onFocus={() => {
                     if (dropoffSuggestions.length > 0) {
-                      setShowDropoffSuggestions(true);
+                      setShowDropoffSuggestions(true)
                     }
                   }}
                 />
@@ -365,7 +445,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   </div>
                 )}
               </div>
-              
+
               {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                   {dropoffSuggestions.map((suggestion, index) => (
@@ -378,9 +458,7 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                       <div className="flex items-start space-x-2">
                         <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-800 truncate">
-                            {suggestion.display_name}
-                          </div>
+                          <div className="text-sm font-medium text-gray-800 truncate">{suggestion.display_name}</div>
                           <div className="text-xs text-gray-500 mt-1">
                             Koordinat: {suggestion.lat}, {suggestion.lon}
                           </div>
@@ -390,11 +468,12 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
                   ))}
                 </div>
               )}
-              
+
               {/* Mevcut koordinat bilgisi */}
               {formData.dropoffCoordinates && (
                 <div className="text-xs text-gray-500 mt-1">
-                  <span className="font-medium">Mevcut koordinat:</span> {formatCoordinateDisplay(formData.dropoffCoordinates)}
+                  <span className="font-medium">Mevcut koordinat:</span>{" "}
+                  {formatCoordinateDisplay(formData.dropoffCoordinates)}
                 </div>
               )}
             </div>
@@ -448,26 +527,24 @@ export default function TaskEditModal({ task, onClose, onSuccess }: TaskEditModa
 
           {/* Koordinat Değişiklik Bilgisi */}
           {(formData.pickupCoordinates && formData.pickupCoordinates !== task.pickup_coordinates) ||
-           (formData.dropoffCoordinates && formData.dropoffCoordinates !== task.dropoff_coordinates) ? (
+          (formData.dropoffCoordinates && formData.dropoffCoordinates !== task.dropoff_coordinates) ? (
             <div className="p-3 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-md">
               <strong>Koordinat Güncellemesi:</strong> Adres değişikliği yapıldığı için koordinatlar yenilenecek.
             </div>
           ) : null}
 
-          {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
-          )}
+          {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>}
 
           <div className="flex space-x-3 pt-4">
             <Button type="submit" disabled={isSubmitting} className="flex-1">
               {isSubmitting ? "Güncelleniyor..." : "Görevi Güncelle"}
             </Button>
-            <Button type="button" onClick={onClose} variant="outline" className="flex-1">
+            <Button type="button" onClick={onClose} variant="outline" className="flex-1 bg-transparent">
               İptal
             </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

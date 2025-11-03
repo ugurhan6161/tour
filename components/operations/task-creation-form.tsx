@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Calendar, MapPin, User, Phone, FileText, Clock, Car, AlertTriangle, CheckCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, MapPin, FileText, AlertTriangle, CheckCircle } from "lucide-react"
 
 interface TaskCreationFormProps {
   drivers: any[]
@@ -37,7 +36,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     customerName: "",
     customerPhone: "",
     customerNotes: "",
-    assignedDriverId: null as string | null,
+    assignedDriverId: "" as string, // null yerine boş string kullan
     vehiclePlate: "",
     passengerCount: "1",
     luggage: "normal",
@@ -46,13 +45,8 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     requiresDocument: false,
     pickupCoordinates: "",
     dropoffCoordinates: "",
-    // Bu alanlar artık gizli - backend için boş gönderilecek
-    estimatedPickupTime: "",
-    actualPickupTime: "",
-    estimatedDropoffTime: "",
-    actualDropoffTime: ""
   })
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickupSuggestions, setPickupSuggestions] = useState<AddressSuggestion[]>([])
@@ -61,19 +55,28 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false)
   const [isSearchingPickup, setIsSearchingPickup] = useState(false)
   const [isSearchingDropoff, setIsSearchingDropoff] = useState(false)
-  
+
   const pickupRef = useRef<HTMLDivElement>(null)
   const dropoffRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
-  // Şoför verilerini düzgün şekilde filtreleme
   const activeDrivers = drivers.filter((driver) => {
-    // driver doğrudan driver_info içeriyor mu kontrol et
-    return driver.driver_info?.is_active === true || driver.is_active === true
+    const isActive = driver.driver_info?.is_active === true || driver.is_active === true
+    console.log("[v0] Driver filter check:", {
+      driver_id: driver.id,
+      full_name: driver.full_name,
+      is_active: isActive,
+      driver_info: driver.driver_info,
+    })
+    return isActive
   })
 
-  console.log("[TaskCreationForm] All drivers:", drivers)
-  console.log("[TaskCreationForm] Active drivers:", activeDrivers)
+  const [vehicles, setVehicles] = useState<any[]>([])
+  const [selectedVehicle, setSelectedVehicle] = useState<string>("")
+
+  console.log("[v0] TaskCreationForm - All drivers:", drivers)
+  console.log("[v0] TaskCreationForm - Active drivers:", activeDrivers)
+  console.log("[v0] TaskCreationForm - Current assignedDriverId:", formData.assignedDriverId)
 
   // Click outside handler for suggestions
   useEffect(() => {
@@ -92,6 +95,32 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     }
   }, [])
 
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("vehicles")
+          .select("*")
+          .eq("is_active", true)
+          .order("plate", { ascending: true })
+
+        if (error) {
+          console.error("[TaskCreationForm] Error fetching vehicles:", error.message)
+          // Vehicles tablosu yoksa boş array kullan
+          setVehicles([])
+        } else {
+          setVehicles(data || [])
+          console.log("[v0] Vehicles loaded:", data?.length || 0)
+        }
+      } catch (err) {
+        console.error("[TaskCreationForm] Exception fetching vehicles:", err)
+        setVehicles([])
+      }
+    }
+
+    fetchVehicles()
+  }, [])
+
   // Search addresses using OpenStreetMap Nominatim
   const searchAddress = async (query: string, isPickup: boolean): Promise<AddressSuggestion[]> => {
     if (!query || query.length < 3) {
@@ -106,21 +135,21 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
       }
 
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=tr`,
       )
-      
+
       if (!response.ok) {
-        throw new Error('Adres arama başarısız')
+        throw new Error("Adres arama başarısız")
       }
 
       const data = await response.json()
       return data.map((item: any) => ({
         display_name: item.display_name,
         lat: item.lat,
-        lon: item.lon
+        lon: item.lon,
       }))
     } catch (error) {
-      console.error('Adres arama hatası:', error)
+      console.error("Adres arama hatası:", error)
       return []
     } finally {
       if (isPickup) {
@@ -135,7 +164,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   const handlePickupAddressChange = async (value: string) => {
     handleInputChange("pickupLocation", value)
     handleInputChange("pickupCoordinates", "")
-    
+
     if (value.length >= 3) {
       const suggestions = await searchAddress(value, true)
       setPickupSuggestions(suggestions)
@@ -150,7 +179,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   const handleDropoffAddressChange = async (value: string) => {
     handleInputChange("dropoffLocation", value)
     handleInputChange("dropoffCoordinates", "")
-    
+
     if (value.length >= 3) {
       const suggestions = await searchAddress(value, false)
       setDropoffSuggestions(suggestions)
@@ -182,22 +211,37 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
   }
 
   const handleDriverChange = (driverId: string) => {
-    console.log("[TaskCreationForm] Selected driver ID:", driverId)
-    
-    const selectedDriver = drivers.find((d) => d.id === driverId)
-    console.log("[TaskCreationForm] Selected driver:", selectedDriver)
-    
-    // Farklı veri yapılarına göre plaka bilgisini al
-    const vehiclePlate = selectedDriver?.driver_info?.vehicle_plate || 
-                        selectedDriver?.vehicle_plate || 
-                        selectedDriver?.vehicle_info?.plate || 
-                        ""
+    console.log("[v0] Driver selection changed:", {
+      selected_driver_id: driverId,
+      is_unassigned: driverId === "unassigned",
+    })
 
     setFormData((prev) => ({
       ...prev,
-      assignedDriverId: driverId === "null" ? null : driverId,
-      vehiclePlate: vehiclePlate
+      assignedDriverId: driverId === "unassigned" ? "" : driverId,
     }))
+
+    console.log("[v0] Form data updated with driver:", driverId === "unassigned" ? "none" : driverId)
+  }
+
+  const handleVehicleChange = (vehicleId: string) => {
+    if (vehicleId === "none") {
+      setSelectedVehicle("")
+      setFormData((prev) => ({
+        ...prev,
+        vehiclePlate: "",
+      }))
+      return
+    }
+
+    const vehicle = vehicles.find((v) => v.id === vehicleId)
+    if (vehicle) {
+      setSelectedVehicle(vehicleId)
+      setFormData((prev) => ({
+        ...prev,
+        vehiclePlate: vehicle.plate,
+      }))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -206,21 +250,36 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
     setError(null)
 
     try {
-      if (!formData.title || !formData.pickupLocation || !formData.dropoffLocation || !formData.pickupDate || !formData.customerName || !formData.customerPhone) {
-        throw new Error('Lütfen tüm gerekli alanları doldurun')
+      // Gerekli alan kontrolü
+      if (
+        !formData.title ||
+        !formData.pickupLocation ||
+        !formData.dropoffLocation ||
+        !formData.pickupDate ||
+        !formData.customerName ||
+        !formData.customerPhone
+      ) {
+        throw new Error("Lütfen tüm gerekli alanları doldurun")
       }
 
-      const phoneRegex = /^[\+]?[(]?[\d\s\-\(\)]{10,}$/
+      // Telefon format kontrolü
+      const phoneRegex = /^[+]?[(]?[\d\s\-$$$$]{10,}$/
       if (!phoneRegex.test(formData.customerPhone)) {
-        throw new Error('Geçerli bir telefon numarası girin')
+        throw new Error("Geçerli bir telefon numarası girin")
       }
 
       // Point format için doğru syntax: (lat,lon)
       const formatCoordinates = (coords: string) => {
-        if (!coords) return null;
-        const [lat, lon] = coords.split(',').map(c => c.trim());
-        return `(${lat},${lon})`;
-      };
+        if (!coords) return null
+        const [lat, lon] = coords.split(",").map((c) => c.trim())
+        return `(${lat},${lon})`
+      }
+
+      // DÜZELTME: assigned_driver_id null veya UUID olmalı
+      const assignedDriverId =
+        formData.assignedDriverId && formData.assignedDriverId !== "" ? formData.assignedDriverId : null
+
+      const taskStatus = assignedDriverId ? "assigned" : "new"
 
       const taskData = {
         title: formData.title,
@@ -228,88 +287,107 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
         dropoff_location: formData.dropoffLocation,
         pickup_date: formData.pickupDate,
         pickup_time: formData.pickupTime || null,
-        estimated_duration: formData.estimatedDuration ? parseInt(formData.estimatedDuration) : null,
+        estimated_duration: formData.estimatedDuration ? Number.parseInt(formData.estimatedDuration) : null,
         customer_name: formData.customerName,
         customer_phone: formData.customerPhone,
         customer_notes: formData.customerNotes || null,
-        assigned_driver_id: formData.assignedDriverId,
+        assigned_driver_id: assignedDriverId,
         vehicle_plate: formData.vehiclePlate || null,
-        passenger_count: parseInt(formData.passengerCount),
+        vehicle_id: selectedVehicle || null, // vehicle_id ekle
+        passenger_count: Number.parseInt(formData.passengerCount),
         luggage_info: formData.luggage,
         priority: formData.priority,
         tracking_enabled: formData.trackingEnabled,
         requires_document: formData.requiresDocument,
         pickup_coordinates: formatCoordinates(formData.pickupCoordinates),
         dropoff_coordinates: formatCoordinates(formData.dropoffCoordinates),
-        // Bu alanlar null olarak gönderilecek
         estimated_pickup_time: null,
         actual_pickup_time: null,
         estimated_dropoff_time: null,
         actual_dropoff_time: null,
-        created_by: profile.id
+        created_by: profile.id,
+        status: taskStatus, // Dinamik status - şöför atanmışsa "assigned", yoksa "new"
       }
 
       console.log("[TaskCreationForm] Submitting task data:", JSON.stringify(taskData, null, 2))
 
-      const { data: taskResult, error: taskError } = await supabase
-        .from("tasks")
-        .insert(taskData)
-        .select()
-        .single()
+      const { data: taskResult, error: taskError } = await supabase.from("tasks").insert(taskData).select().single()
 
       if (taskError) {
         console.error("[TaskCreationForm] Error inserting task:", taskError)
         throw new Error(`Görev oluşturma başarısız: ${taskError.message}`)
       }
 
+      console.log("[TaskCreationForm] Task created successfully:", taskResult)
+
+      // DÜZELTME: Tracking link oluşturma - expires_at eklendi
       if (formData.trackingEnabled) {
         const trackingCode = crypto.randomUUID()
-        const { error: trackingError } = await supabase
+
+        // 30 gün sonrası için expires_at hesapla
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + 30)
+
+        const trackingData = {
+          task_id: taskResult.id,
+          tracking_code: trackingCode,
+          is_active: true,
+          expires_at: expiresAt.toISOString(), // expires_at eklendi
+        }
+
+        console.log("[TaskCreationForm] Creating tracking link:", trackingData)
+
+        const { data: trackingResult, error: trackingError } = await supabase
           .from("tracking_links")
-          .insert({
-            task_id: taskResult.id,
-            tracking_code: trackingCode,
-            is_active: true
-          })
+          .insert(trackingData)
+          .select()
+          .single()
 
         if (trackingError) {
           console.error("[TaskCreationForm] Error creating tracking link:", trackingError)
-          throw new Error(`Takip bağlantısı oluşturma başarısız: ${trackingError.message}`)
+          // Tracking link hatası görev oluşturmayı engellemez, sadece logla
+          console.warn("Tracking link oluşturulamadı ancak görev başarıyla oluşturuldu")
+        } else {
+          console.log("[TaskCreationForm] Tracking link created:", trackingResult)
         }
       }
 
+      // Başarılı olursa callback'i çağır
       onSuccess()
     } catch (err: any) {
-      console.error("[TaskCreationForm] Submission error:", err.message)
-      setError(err.message)
+      console.error("[TaskCreationForm] Submission error:", err)
+      setError(err.message || "Bilinmeyen bir hata oluştu")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Şoför görüntüleme adı oluşturma
   const getDriverDisplayName = (driver: any) => {
-    if (!driver) return "Bilinmeyen Şoför";
-    
+    if (!driver) {
+      console.log("[v0] getDriverDisplayName - driver is null/undefined")
+      return "Bilinmeyen Şoför"
+    }
+
     // Farklı veri yapılarına göre isim bilgisini al
-    const name = driver.full_name || 
-                driver.name || 
-                `${driver.first_name || ''} ${driver.last_name || ''}`.trim() ||
-                "İsimsiz Şoför";
-    
-    // Farklı veri yapılarına göre plaka bilgisini al
-    const plate = driver.driver_info?.vehicle_plate || 
-                 driver.vehicle_plate || 
-                 driver.vehicle_info?.plate || 
-                 "Plaka yok";
-    
-    return `${name} - ${plate}`;
+    const name =
+      driver.full_name ||
+      driver.name ||
+      `${driver.first_name || ""} ${driver.last_name || ""}`.trim() ||
+      "İsimsiz Şoför"
+
+    console.log("[v0] getDriverDisplayName:", {
+      driver_id: driver.id,
+      display_name: name,
+      full_name: driver.full_name,
+    })
+
+    return name
   }
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="mb-4 sm:mb-6">
-        <Button onClick={onCancel} variant="outline" className="mb-4 sm:mb-6">
+        <Button onClick={onCancel} variant="outline" className="mb-4 sm:mb-6 bg-transparent">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Geri
         </Button>
@@ -328,7 +406,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="title" className="text-sm font-medium">Görev Başlığı</Label>
+                <Label htmlFor="title" className="text-sm font-medium">
+                  Görev Başlığı
+                </Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -340,7 +420,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 relative" ref={pickupRef}>
-                  <Label htmlFor="pickupLocation" className="text-sm font-medium">Alış Konumu</Label>
+                  <Label htmlFor="pickupLocation" className="text-sm font-medium">
+                    Alış Konumu
+                  </Label>
                   <div className="relative">
                     <Input
                       id="pickupLocation"
@@ -360,7 +442,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                       </div>
                     )}
                   </div>
-                  
+
                   {showPickupSuggestions && pickupSuggestions.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                       {pickupSuggestions.map((suggestion, index) => (
@@ -368,7 +450,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                           key={index}
                           className="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
                           onClick={() => handlePickupAddressSelect(suggestion)}
-                          onMouseDown={(e) => e.preventDefault()} // Prevent input blur
+                          onMouseDown={(e) => e.preventDefault()}
                         >
                           <div className="flex items-start space-x-2">
                             <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -388,7 +470,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 </div>
 
                 <div className="space-y-2 relative" ref={dropoffRef}>
-                  <Label htmlFor="dropoffLocation" className="text-sm font-medium">Bırakış Konumu</Label>
+                  <Label htmlFor="dropoffLocation" className="text-sm font-medium">
+                    Bırakış Konumu
+                  </Label>
                   <div className="relative">
                     <Input
                       id="dropoffLocation"
@@ -408,7 +492,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                       </div>
                     )}
                   </div>
-                  
+
                   {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                       {dropoffSuggestions.map((suggestion, index) => (
@@ -416,7 +500,7 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                           key={index}
                           className="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
                           onClick={() => handleDropoffAddressSelect(suggestion)}
-                          onMouseDown={(e) => e.preventDefault()} // Prevent input blur
+                          onMouseDown={(e) => e.preventDefault()}
                         >
                           <div className="flex items-start space-x-2">
                             <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -436,44 +520,11 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 </div>
               </div>
 
-              {/* Koordinat alanları gizli - sadece backend için */}
-              <div className="hidden">
-                <Input
-                  id="pickupCoordinates"
-                  value={formData.pickupCoordinates}
-                  onChange={(e) => handleInputChange("pickupCoordinates", e.target.value)}
-                />
-                <Input
-                  id="dropoffCoordinates"
-                  value={formData.dropoffCoordinates}
-                  onChange={(e) => handleInputChange("dropoffCoordinates", e.target.value)}
-                />
-                {/* Gizli zaman alanları */}
-                <Input
-                  id="estimatedPickupTime"
-                  value={formData.estimatedPickupTime}
-                  onChange={(e) => handleInputChange("estimatedPickupTime", e.target.value)}
-                />
-                <Input
-                  id="estimatedDropoffTime"
-                  value={formData.estimatedDropoffTime}
-                  onChange={(e) => handleInputChange("estimatedDropoffTime", e.target.value)}
-                />
-                <Input
-                  id="actualPickupTime"
-                  value={formData.actualPickupTime}
-                  onChange={(e) => handleInputChange("actualPickupTime", e.target.value)}
-                />
-                <Input
-                  id="actualDropoffTime"
-                  value={formData.actualDropoffTime}
-                  onChange={(e) => handleInputChange("actualDropoffTime", e.target.value)}
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="pickupDate" className="text-sm font-medium">Alış Tarihi</Label>
+                  <Label htmlFor="pickupDate" className="text-sm font-medium">
+                    Alış Tarihi
+                  </Label>
                   <Input
                     id="pickupDate"
                     type="date"
@@ -483,7 +534,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pickupTime" className="text-sm font-medium">Alış Saati</Label>
+                  <Label htmlFor="pickupTime" className="text-sm font-medium">
+                    Alış Saati
+                  </Label>
                   <Input
                     id="pickupTime"
                     type="time"
@@ -495,7 +548,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="customerName" className="text-sm font-medium">Müşteri Adı</Label>
+                  <Label htmlFor="customerName" className="text-sm font-medium">
+                    Müşteri Adı
+                  </Label>
                   <Input
                     id="customerName"
                     value={formData.customerName}
@@ -505,7 +560,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customerPhone" className="text-sm font-medium">Müşteri Telefonu</Label>
+                  <Label htmlFor="customerPhone" className="text-sm font-medium">
+                    Müşteri Telefonu
+                  </Label>
                   <Input
                     id="customerPhone"
                     value={formData.customerPhone}
@@ -518,7 +575,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="passengerCount" className="text-sm font-medium">Yolcu Sayısı</Label>
+                  <Label htmlFor="passengerCount" className="text-sm font-medium">
+                    Yolcu Sayısı
+                  </Label>
                   <Select
                     value={formData.passengerCount}
                     onValueChange={(value) => handleInputChange("passengerCount", value)}
@@ -536,11 +595,10 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="luggage" className="text-sm font-medium">Bagaj Bilgisi</Label>
-                  <Select
-                    value={formData.luggage}
-                    onValueChange={(value) => handleInputChange("luggage", value)}
-                  >
+                  <Label htmlFor="luggage" className="text-sm font-medium">
+                    Bagaj Bilgisi
+                  </Label>
+                  <Select value={formData.luggage} onValueChange={(value) => handleInputChange("luggage", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Bagaj tipi seçin" />
                     </SelectTrigger>
@@ -555,11 +613,10 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm font-medium">Öncelik</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) => handleInputChange("priority", value)}
-                  >
+                  <Label htmlFor="priority" className="text-sm font-medium">
+                    Öncelik
+                  </Label>
+                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Öncelik seviyesi seçin" />
                     </SelectTrigger>
@@ -571,7 +628,9 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="estimatedDuration" className="text-sm font-medium">Tahmini Süre (dakika)</Label>
+                  <Label htmlFor="estimatedDuration" className="text-sm font-medium">
+                    Tahmini Süre (dakika)
+                  </Label>
                   <Input
                     id="estimatedDuration"
                     type="number"
@@ -582,24 +641,29 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 </div>
               </div>
 
-              {/* Şoför Atama Bölümü */}
+              {/* DÜZELTME: Şoför Atama Bölümü */}
               <div className="space-y-2">
-                <Label htmlFor="assignedDriverId" className="text-sm font-medium">Şoför Ataması (İsteğe Bağlı)</Label>
-                <Select
-                  value={formData.assignedDriverId || "null"}
-                  onValueChange={handleDriverChange}
-                >
+                <Label htmlFor="assignedDriverId" className="text-sm font-medium">
+                  Şoför Ataması (İsteğe Bağlı)
+                </Label>
+                <Select value={formData.assignedDriverId || "unassigned"} onValueChange={handleDriverChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Şoför seçin veya atanmamış bırakın" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="null">Atanmamış</SelectItem>
+                    <SelectItem value="unassigned">Atanmamış</SelectItem>
                     {activeDrivers.length > 0 ? (
-                      activeDrivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {getDriverDisplayName(driver)}
-                        </SelectItem>
-                      ))
+                      activeDrivers.map((driver) => {
+                        console.log("[v0] Rendering driver option:", {
+                          id: driver.id,
+                          name: getDriverDisplayName(driver),
+                        })
+                        return (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {getDriverDisplayName(driver)}
+                          </SelectItem>
+                        )
+                      })
                     ) : (
                       <SelectItem value="none" disabled>
                         Aktif şoför bulunamadı
@@ -607,18 +671,65 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                     )}
                   </SelectContent>
                 </Select>
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-gray-500">{activeDrivers.length} aktif şoför mevcut</p>
-                  {formData.vehiclePlate && (
-                    <p className="text-xs text-green-600 font-medium">
-                      Seçili araç: {formData.vehiclePlate}
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-gray-500">
+                  {activeDrivers.length} aktif şoför mevcut. Şoför seçimi görev durumunu "Atanmış" yapar.
+                </p>
+                {activeDrivers.length === 0 && (
+                  <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                    ⚠️ Aktif şoför bulunamadı. Lütfen önce şoför ekleyin ve aktif duruma getirin.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="customerNotes" className="text-sm font-medium">Müşteri Notları</Label>
+                <Label htmlFor="vehicleSelect" className="text-sm font-medium">
+                  Araç Seçimi (İsteğe Bağlı)
+                </Label>
+                <Select value={selectedVehicle || "none"} onValueChange={handleVehicleChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kayıtlı araçlardan seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Araç seçmeyin</SelectItem>
+                    {vehicles.length > 0 ? (
+                      vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.plate} - {vehicle.model} ({vehicle.capacity} kişi)
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="empty" disabled>
+                        Kayıtlı araç bulunamadı
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  {vehicles.length > 0
+                    ? `${vehicles.length} aktif araç mevcut. Araç seçerseniz plaka otomatik doldurulur.`
+                    : "Henüz kayıtlı araç yok. Araçlar bölümünden araç ekleyebilirsiniz."}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vehiclePlate" className="text-sm font-medium">
+                  Araç Plakası (Düzenlenebilir)
+                </Label>
+                <Input
+                  id="vehiclePlate"
+                  value={formData.vehiclePlate}
+                  onChange={(e) => handleInputChange("vehiclePlate", e.target.value)}
+                  placeholder="Örn: 34 ABC 123"
+                />
+                <p className="text-xs text-gray-500">
+                  Araç seçtiğinizde plaka otomatik doldurulur, ancak manuel olarak da değiştirebilirsiniz
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customerNotes" className="text-sm font-medium">
+                  Müşteri Notları
+                </Label>
                 <Textarea
                   id="customerNotes"
                   value={formData.customerNotes}
@@ -628,15 +739,45 @@ export default function TaskCreationForm({ drivers, onCancel, onSuccess, profile
                 />
               </div>
 
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
+                <Checkbox
+                  id="trackingEnabled"
+                  checked={formData.trackingEnabled}
+                  onCheckedChange={(checked) => handleInputChange("trackingEnabled", checked)}
+                />
+                <Label htmlFor="trackingEnabled" className="text-sm cursor-pointer">
+                  Müşteri takip linki oluştur (30 gün geçerli)
+                </Label>
+              </div>
+
               {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
+                <div className="p-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <div>{error}</div>
+                </div>
               )}
 
               <div className="flex space-x-3 pt-4">
                 <Button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                  {isSubmitting ? "Oluşturuluyor..." : "Görev Oluştur"}
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Oluşturuluyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Görev Oluştur
+                    </>
+                  )}
                 </Button>
-                <Button type="button" onClick={onCancel} variant="outline" className="flex-1 bg-transparent">
+                <Button
+                  type="button"
+                  onClick={onCancel}
+                  variant="outline"
+                  className="flex-1 bg-transparent"
+                  disabled={isSubmitting}
+                >
                   İptal
                 </Button>
               </div>
